@@ -70,8 +70,8 @@ data(pathwayDB)
 
 ### How to generate?
 
-[steps to reproduce
-pathwayDB](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/pathwayDB/pathways.md)
+[steps to reproduce the heartFailure
+data](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/pathwayDB/pathways.md)
 
 ## Features
 
@@ -92,8 +92,7 @@ feature branch. Pull requests are warmly welcome.
 
 ## Links
 
-  - Repository:
-    <https://github.com/singha53/https://github.com/singha53/omicsBioAnalytics/>
+  - Repository: <https://github.com/singha53/omicsBioAnalytics/>
 
 ## Copyright and license
 
