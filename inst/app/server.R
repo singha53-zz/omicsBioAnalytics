@@ -4,6 +4,11 @@ library("plotly");
 library("asthmaMetabolomics");
 library("googleVis");
 
+## global variables
+## set colors for binary groups
+lvl1Color <- "#66C2A5"
+lvl2Color <- "#FC8D62"
+
 function(input, output, session) {
 
   # Demographics data upload
@@ -27,17 +32,19 @@ function(input, output, session) {
   # omics data upload
   getOmicsData <-reactive({
     req(input$omicsData)
-    omicsData <- lapply(input$omicsData$datapath, read.csv, header = TRUE)
-    list(data = omicsData, name = gsub(".csv", "", input$omicsData$name))
+    omicsData <- lapply(input$omicsData$datapath, read.csv, header = TRUE, sep = input$sep)
+    names(omicsData) <- gsub(".csv|.tsv", "", input$omicsData$name)
+    lapply(omicsData, head)
+    omicsData
   })
 
   # select dataset
   output$dataGenSym <- renderUI({
     checkboxGroupInput("dataGenSym", "Which datasets are labelled with gene symbols?",
       choiceNames =
-        as.list(getOmicsData()$name),
+        as.list(names(getOmicsData())),
       choiceValues =
-        as.list(getOmicsData()$name)
+        as.list(names(getOmicsData()))
     )
   })
 
@@ -251,16 +258,67 @@ function(input, output, session) {
     # Exploratory Data Analysis
     #
     ################################################################################
+    observe({
+    ## User interface
+    output$eda = renderUI({
+      myTabs <- lapply(names(getOmicsData()), function(i){
+        print(i)
+        tabPanel(i,
+          fluidRow(column(
+            4,
+            sliderInput(
+              paste("ncomp", i, sep="_"),
+              h3("Number of components"),
+              min = 2,
+              max = 5,
+              value = 1
+            ),
+            h3("PCA component plots", align = "center")
+          ), column(
+            8,
+            h3("Percentage variation explained", align = "center"),
+            verbatimTextOutput(paste("varExp", i, sep="_"))
+          )),
+          fluidRow(column(
+            4,
+            plotOutput(paste("pcaPlot", i, sep="_"), width = "100%")
+          ),
+            column(
+              8,
+              h3("Which clinical variables are associated with major sources of variation in the gene expression data?", align = "center"),
+              plotlyOutput(paste("pcClinVarPlot", i, sep="_"), width = "100%")
+            ))
+        )
+      })
 
+      do.call(tabsetPanel, myTabs)
+    })
 
-
-
-
-
-
-
-
-
+    ## Backend
+    lapply(names(getOmicsData()),
+      function(i) {
+        observeEvent(input[[paste("ncomp", i, sep="_")]], {
+          pcs = prcomp(
+              getOmicsData()[[i]],
+              scale. = TRUE,
+              center = TRUE,
+              rank. = input[[paste("ncomp", i, sep="_")]]
+            )
+          output[[paste("varExp", i, sep="_")]] <- renderPrint({summary(pcs)})
+          output[[paste("pcaPlot", i, sep="_")]] <- renderPlot({
+            omicsBioAnalytics::pcaPairs(pcs = pcs, y = demo[, input$responseVar], col=c(lvl1Color, lvl2Color))
+          })
+          output[[paste("pcClinVarPlot", i, sep="_")]] <- renderPlotly({
+            ggplotly(pcaHeatmap(pcs = pcs$x, demo = demo)) %>%
+              layout(legend = list(
+                orientation = "h",
+                x = 0.1,
+                y = -1
+              ))
+          })
+        })
+      }
+    )})
 
 
     # show analysis sidemenu when run analysis button is pressed
