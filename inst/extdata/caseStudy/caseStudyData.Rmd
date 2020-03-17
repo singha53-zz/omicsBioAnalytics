@@ -13,9 +13,9 @@ library(tidyverse); library(knitr);
 * reduce the transcripts dataset to 5000 features (10MB to <5MB)
 
 ```{r}
-transcripts <- read.csv(here::here("inst", "extdata", "caseStudy", "transcripts.tsv"), header = TRUE, sep = "\t")
-geneSd <- apply(transcripts, 2, sd)
-write.table(transcripts[, order(geneSd, decreasing = TRUE)[1:5000]], file = here::here("inst", "extdata", "caseStudy", "mrna.tsv"), sep = "\t")
+# transcripts <- read.csv(here::here("inst", "extdata", "caseStudy", "transcripts.tsv"), header = TRUE, sep = "\t")
+# geneSd <- apply(transcripts, 2, sd)
+# write.table(transcripts[, order(geneSd, decreasing = TRUE)[1:5000]], file = here::here("inst", "extdata", "caseStudy", "mrna.tsv"), sep = "\t")
 
 omicsData <- lapply(c("cells.tsv", "holter.tsv", "mrna.tsv", "proteins.tsv"), function(i){
   read.csv(here::here("inst", "extdata", "caseStudy", i), header = TRUE, sep = "\t")

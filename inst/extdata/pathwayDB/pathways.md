@@ -14,7 +14,7 @@
 databaseFiles <- c("BioCarta_2016.csv", "KEGG_2019_Human.csv", "Reactome_2016.csv", "WikiPathways_2019_Human.csv")
 pathwayDB <- lapply(databaseFiles, function(pathwayName){
   cat("Processing: ", pathwayName, fill = TRUE)
-  dat <- read.csv(here::here("inst", "extdata", "dataCleaning", "pathwayDB", "data", pathwayName), header = FALSE)
+  dat <- read.csv(here::here("inst", "extdata", "pathwayDB", "data", pathwayName), header = FALSE)
   dat[dat == ""] <- NA
   dat %>% 
     gather(Members, Genes, -V1) %>% 
@@ -113,5 +113,5 @@ pathwayTally %>%
 usethis::use_data(pathwayDB, overwrite = TRUE)
 ```
 
-    ## ✔ Setting active project to '/Users/asingh/Documents/omics-central-packages/r/omicsCentralDatasets'
+    ## ✔ Setting active project to '/Users/asingh/Documents/omicsBioAnalytics'
     ## ✔ Saving 'pathwayDB' to 'data/pathwayDB.rda'

@@ -3,7 +3,7 @@
 
 <p align="center">
 
-<img src="https://github.com/singha53/omics-central-viz/blob/master/public/logo.png" width={400} alt="Omics BioAnalytics" />
+<img src="https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/figures/logo.png" width={400} alt="Omics BioAnalytics" />
 
 </p>
 
@@ -49,9 +49,17 @@ omicsBioAnalytics::startApp()
 
 ### Heart Failure case study
 
-  - data was download from my previously pubilshe study [Can J
-    Cardiol. 2019 Apr;35(4):471-479
-    (PMID: 30935638)](https://amritsingh.shinyapps.io/multiomics_HFhospitalizations/)
+### How to use?
+
+``` r
+library(omicsBioAnalytics);
+data(heartFailure)
+```
+
+### How to generate?
+
+[steps to reproduce
+pathwayDB](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/caseStudy/caseStudyData.md)
 
 ### Pathway datasets
 
@@ -65,7 +73,7 @@ data(pathwayDB)
 ### How to generate?
 
 [steps to reproduce
-pathwayDB](https://github.com/singha53/omicsCentralDatasets/blob/master/inst/extdata/pathwayDB/pathways.md)
+pathwayDB](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/pathwayDB/pathways.md)
 
 ## Features
 

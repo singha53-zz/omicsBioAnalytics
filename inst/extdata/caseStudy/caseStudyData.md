@@ -8,7 +8,27 @@
 <!-- end list -->
 
 ``` r
-transcripts <- read.csv(here::here("inst", "extdata", "caseStudy", "transcripts.tsv"), header = TRUE, sep = "\t")
-geneSd <- apply(transcripts, 2, sd)
-write.table(transcripts[, order(geneSd, decreasing = TRUE)[1:5000]], file = here::here("inst", "extdata", "caseStudy", "mrna.tsv"), sep = "\t")
+# transcripts <- read.csv(here::here("inst", "extdata", "caseStudy", "transcripts.tsv"), header = TRUE, sep = "\t")
+# geneSd <- apply(transcripts, 2, sd)
+# write.table(transcripts[, order(geneSd, decreasing = TRUE)[1:5000]], file = here::here("inst", "extdata", "caseStudy", "mrna.tsv"), sep = "\t")
+
+omicsData <- lapply(c("cells.tsv", "holter.tsv", "mrna.tsv", "proteins.tsv"), function(i){
+  read.csv(here::here("inst", "extdata", "caseStudy", i), header = TRUE, sep = "\t")
+})
+names(omicsData) <- c("cells", "holter", "mrna", "proteins")
+
+## save heart failure datasets
+heartFailure <- list(
+  demo = read.csv(here::here("inst", "extdata", "caseStudy", "clinical.tsv"), header = TRUE, sep = "\t"),
+  omicsData = omicsData
+)
 ```
+
+## Save package data
+
+``` r
+usethis::use_data(heartFailure, overwrite = TRUE)
+```
+
+    ## ✔ Setting active project to '/Users/asingh/Documents/omicsBioAnalytics'
+    ## ✔ Saving 'heartFailure' to 'data/heartFailure.rda'
