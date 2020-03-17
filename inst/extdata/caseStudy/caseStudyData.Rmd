@@ -1,0 +1,38 @@
+---
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = FALSE, warning = FALSE, message = FALSE)
+
+library(tidyverse); library(knitr);
+```
+
+## Steps to reproduce the heart failure case study data
+* download demographics and omics data from https://amritsingh.shinyapps.io/multiomics_HFhospitalizations/
+* reduce the transcripts dataset to 5000 features (10MB to <5MB)
+
+```{r}
+transcripts <- read.csv(here::here("inst", "extdata", "caseStudy", "transcripts.tsv"), header = TRUE, sep = "\t")
+geneSd <- apply(transcripts, 2, sd)
+write.table(transcripts[, order(geneSd, decreasing = TRUE)[1:5000]], file = here::here("inst", "extdata", "caseStudy", "mrna.tsv"), sep = "\t")
+
+omicsData <- lapply(c("cells.tsv", "holter.tsv", "mrna.tsv", "proteins.tsv"), function(i){
+  read.csv(here::here("inst", "extdata", "caseStudy", i), header = TRUE, sep = "\t")
+})
+names(omicsData) <- c("cells", "holter", "mrna", "proteins")
+
+## save heart failure datasets
+heartFailure <- list(
+  demo = read.csv(here::here("inst", "extdata", "caseStudy", "clinical.tsv"), header = TRUE, sep = "\t"),
+  omicsData = omicsData
+)
+```
+
+## Save package data
+
+```{r}
+usethis::use_data(heartFailure, overwrite = TRUE)
+```
+
+
