@@ -113,9 +113,40 @@ sidebar <- dashboardSidebar(
   )
 )
 
+## Body
+body <- dashboardBody(
+    tags$style(".content {background-color: white;}"),
+    tags$style(type="text/css", ".modelInput label{ display: table-cell; }
+                .modelInput .form-group { display: table-row;}"),
+    fluidPage(
+      tabItems(
+        tabItem(
+          tabName = "overview",
+          "overview"
+        ),
+        tabItem(
+          tabName = "data",
+          omicsBioAnalytics::dataUpload()
+        ),
+        tabItem("subitem1",
+          omicsBioAnalytics::patientCharacteristics()
+        ),
+        tabItem(
+          tabName = "methods",
+          "methods"
+        ),
+        tabItem(
+          tabName = "contacts",
+          "contacts"
+        )
+      )
+    )
+)
+
+
 dashboardPage(
   skin = "blue",
   header,
   sidebar,
-  dashboardBody()
+  body
 )
