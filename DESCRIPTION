@@ -10,8 +10,10 @@ Description: Users can upload multiple omics data and perform various bioinforma
 Depends: R (>= 3.5.0)
 Imports:
  shinyjs,
+ shinydashboard (>= 0.6.1),
  dplyr (>= 0.7.1),
- shinydashboard (>= 0.6.1)
+ plotly (>= 4.9.1),
+ googleVis (>= 0.6.4)
 Suggests: 
  testthat (>= 2.1.0)
 License: MIT
