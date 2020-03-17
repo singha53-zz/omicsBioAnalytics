@@ -1,7 +1,7 @@
 # load libraries
 library("shiny");
 library("plotly");
-library("asthmaMetabolomics");
+library("omicsBioAnalytics");
 library("googleVis");
 
 ## global variables
