@@ -1,13 +1,11 @@
 
-# Omics BioAnalytics
-
 <p align="center">
 
 <img src="https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/figures/logo.png" width={400} alt="Omics BioAnalytics" />
 
 </p>
 
-Omics BioAnalytics is a Shiny app that perform common bioinformatics
+**Omics BioAnalytics** is a Shiny app that perform common bioinformatics
 analyses such as descriptive analyses of demographics variables,
 exploratory data analysis, differential expression analysis and
 biomarker discovery analysis. The can either use the provided sample
