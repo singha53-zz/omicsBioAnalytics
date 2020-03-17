@@ -7,6 +7,13 @@ Maintainer: Amrit Singh <asingh.analytics@gmail.com>
 Description: Users can upload multiple omics data and perform various bioinformatics analyses.
     These analyses include descriptive statistics, exploratory data analyses, differential expression analysis,
     biomarker discovery analysis and manuscript writing.
+Depends: R (>= 3.5.0)
+Imports:
+ shinyjs,
+ dplyr (>= 0.7.1),
+ shinydashboard (>= 0.6.1)
+Suggests: 
+ testthat (>= 2.1.0)
 License: MIT
 Encoding: UTF-8
 LazyData: true
