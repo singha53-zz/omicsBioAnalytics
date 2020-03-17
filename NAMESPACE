@@ -1,1 +1,5 @@
-exportPattern("^[[:alpha:]]+")
+export(dataUpload)
+export(patientCharacteristics)
+export(splitData)
+importFrom(utils,read.csv)
+importFrom(magrittr,"%>%")
