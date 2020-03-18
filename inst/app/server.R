@@ -1,8 +1,10 @@
 # load libraries
 library("shiny");
+library("shinyBS");
 library("plotly");
 library("omicsBioAnalytics");
 library("googleVis");
+library("limma")
 
 ## global variables
 ## set colors for binary groups
@@ -57,11 +59,6 @@ function(input, output, session) {
 
   # Run analysis
   observeEvent(input$run, {
-    # print(getDemoData()[1:2, 1:2])
-    # print(input$responseVar)
-    # print(lapply(getOmicsData()$data, head))
-    # print(getOmicsData()$name)
-
     ################################################################################
     #
     # Patient Characteristics
@@ -98,7 +95,7 @@ function(input, output, session) {
       f <- list(family = "Courier New, monospace",
         size = 15,
         color = "#7f7f7f")
-      xaxis <- list(title = "hospitalizations",
+      xaxis <- list(title = input$responseVar,
         titlefont = f)
       yaxis <- reactive({
         list(title = if (input$transform == "no") {
@@ -109,7 +106,7 @@ function(input, output, session) {
           titlefont = f)
       })
       title <- reactive({
-        title = paste(input$vars, "vs. hospitalizations")
+        title = paste(input$vars, " vs. ", input$responseVar)
       })
       output$plot <- renderPlotly({
         options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
@@ -245,9 +242,9 @@ function(input, output, session) {
         pval <- chisq.test(demo[, input$catVar], demo[, input$responseVar])$p.value
         ifelse(pval < 0.05,
           paste0("There is a statistically significant association (at p<0.05) between ",
-            input$catVar, " and hospitalizations", " (p-value = ", signif(pval, 3), ")."),
+            input$catVar, " and ", input$responseVar, " (p-value = ", signif(pval, 3), ")."),
           paste0("There is no statistically significant association (at p<0.05) between ",
-            input$catVar, " and hospitalizations", " (p-value = ", signif(pval, 3), ")."))
+            input$catVar, " and ", input$responseVar, " (p-value = ", signif(pval, 3), ")."))
       })
       output$chisqTitle <- renderText({input$catVar})
     })
@@ -262,7 +259,6 @@ function(input, output, session) {
     ## User interface
     output$eda = renderUI({
       myTabs <- lapply(names(getOmicsData()), function(i){
-        print(i)
         tabPanel(i,
           fluidRow(column(
             4,
@@ -318,8 +314,139 @@ function(input, output, session) {
           })
         })
       }
-    )})
+    )
+    })
 
+    ################################################################################
+    #
+    # Differential Expression Analysis
+    #
+    ################################################################################
+    observe({
+      ## User interface
+      output$dea = renderUI({
+        myTabs <- lapply(names(getOmicsData()), function(i){
+          tabPanel(i,
+            fluidRow(
+              column(6, verbatimTextOutput(paste("selection", i, sep="_")), style = 'padding: 15px 10px 0px 10px;'),
+              column(6, align = "center",
+                sliderInput(paste("fdr", i, sep="_"), h3("Select FDR threshold", align = "center"),
+                  min = 0.05, max = 0.5, value = 0.05))),
+            fluidRow(
+              column(6, plotlyOutput(paste("volcanoPlot", i, sep="_"))),
+              column(6,
+                plotlyOutput(paste("boxplot", i, sep="_"))
+              )),
+            fluidRow(column(8, h4(textOutput(paste("statement", i, sep="_")))),
+              column(4, actionButton(paste("button", i, sep="_"), "Significant variables", icon = icon("table")),
+                bsModal(paste("modal", i, sep="_"), "Data Table", paste("button", i, sep="_"), size = "large",
+                  DT::dataTableOutput(paste("sig", i, sep="_")))))
+          )
+        })
+
+        do.call(tabsetPanel, myTabs)
+      })
+
+      ## Backend
+      lapply(names(getOmicsData()),
+        function(i) {
+          observeEvent(input[[paste("fdr", i, sep="_")]], {
+            design <- model.matrix(~demo[, input$responseVar])
+            fit <- eBayes(lmFit(t(getOmicsData()[[i]]), design))
+            top <- topTable(fit, coef = 2, adjust.method = "BH", n = nrow(fit), sort.by="none")
+            top <- top %>% mutate(FeatureName = colnames(getOmicsData()[[i]]),
+              sig = -log10(P.Value)) %>%
+              arrange(P.Value)
+
+            subsetTop <- reactive({
+              top = top %>%
+                mutate(Significant=ifelse(adj.P.Val < input[[paste("fdr", i, sep="_")]],
+                  paste("FDR < ", input[[paste("fdr", i, sep="_")]]), "Not Sig"))
+            })
+
+            # volcano plot
+            output[[paste("volcanoPlot", i, sep="_")]] <- renderPlotly({
+              options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
+              plot_ly(subsetTop(), x = ~logFC, y = ~sig,
+                key = ~FeatureName, color=~Significant,
+                colors=c("#F8766D", "grey"), marker = list(size=10),
+                type = "scatter", source = paste("volcanoPlot", i, sep="_")) %>%
+                layout(legend = list(orientation = 'h', xanchor="center", x=0.5, y=1.1),
+                  xaxis = list(title = "log<sub>2</sub>FC"),
+                  yaxis = list(title = "-log<sub>10</sub>(P-value)"))
+            })
+
+            # selected feature on volcano plot
+            output[[paste("selection", i, sep="_")]] <- renderPrint({
+              s <- event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))
+              if (length(s) == 0) {
+                "Click on a point on the volcano plot"
+              } else {
+                cat(paste("You selected:", s$key, "\n\n"));
+                cat(paste("Fold-change = ", signif(s$x, 3), "\n P-value = ", signif(10^-s$y, 3)))
+              }
+            })
+
+            # feature plot
+            output[[paste("boxplot", i, sep="_")]] <- renderPlotly({
+              s <- event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))
+              if (length(s)) {
+                var <- unlist(s[["key"]])
+                lvls <- levels(demo[, input$responseVar])
+                lvl1 <- as.numeric(getOmicsData()[[i]][demo[, input$responseVar] == lvls[1], var])
+                lvl2 <- as.numeric(getOmicsData()[[i]][demo[, input$responseVar] == lvls[2], var])
+
+                f <- list(family = "Courier New, monospace",
+                  size = 15, color = "#7f7f7f")
+                xaxis <- list(title = input$responseVar, titlefont = f)
+                yaxis <- list(title = var, titlefont = f)
+
+                options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
+                plot_ly(type = 'box') %>%
+                  add_boxplot(y = lvl1, jitter = 0.3, pointpos = -1.8, boxpoints = 'all',
+                    marker = list(color = lvl1Color),
+                    line = list(color = lvl1Color),
+                    name = paste0(lvls[1], " (n=", length(lvl1), ")")) %>%
+                  add_boxplot(y = lvl2, jitter = 0.3, pointpos = -1.8, boxpoints = 'all',
+                    marker = list(color = lvl2Color),
+                    line = list(color = lvl2Color),
+                    name = paste0(lvls[2], "( n=", length(lvl2), ")")) %>%
+                  layout(showlegend = FALSE) %>%
+                  layout(xaxis = xaxis,
+                    yaxis = yaxis,
+                    title = paste(var, "vs.", input$responseVar))
+              } else {
+                plotly_empty()
+              }
+            })
+
+            # statement
+            output[[paste("statement", i, sep="_")]] <- renderText({
+              paste("There are ", sum(top$adj.P.Val < input[[paste("fdr", i, sep="_")]]), "significant ", i, ". ",
+                sum(top$logFC > 0 & top$adj.P.Val < input[[paste("fdr", i, sep="_")]]), i, " were up-regulated in subjects whereas",
+                sum(top$logFC < 0 & top$adj.P.Val < input[[paste("fdr", i, sep="_")]]), i, " were down-regulated.")
+            })
+
+            print(dplyr::filter(subsetTop(), Significant != "Not Sig") %>%
+                mutate(logFC = signif(logFC, 2),
+                  P.Value = signif(P.Value, 2),
+                  adj.P.Val = signif(adj.P.Val, 2),
+                  sig = signif(sig, 2)) %>%
+                dplyr::select(FeatureName, logFC, P.Value, adj.P.Val), options = list(lengthChange = FALSE))
+            # table of significant featuers
+            output[[paste("sig", i, sep="_")]] <-  DT::renderDataTable( dplyr::filter(subsetTop(), Significant != "Not Sig") %>%
+                mutate(logFC = signif(logFC, 2),
+                  P.Value = signif(P.Value, 2),
+                  adj.P.Val = signif(adj.P.Val, 2),
+                  sig = signif(sig, 2)) %>%
+                dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
+
+
+
+
+          })
+        }
+      )})
 
     # show analysis sidemenu when run analysis button is pressed
     output$analysisRan <- reactive({

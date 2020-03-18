@@ -97,11 +97,6 @@ sidebar <- dashboardSidebar(
         icon = icon("flask")
       ),
       menuItem(
-        "Contacts",
-        tabName = "contacts",
-        icon = icon("address-book")
-      ),
-      menuItem(
         "Analysis",
         tabName = "analysis",
         icon = icon("bar-chart-o"),
@@ -109,6 +104,11 @@ sidebar <- dashboardSidebar(
         menuSubItem("Exploratory Data Analysis", tabName = "subitem2"),
         menuSubItem("Differential expression", tabName = "subitem3"),
         menuSubItem("Biomarker panels", tabName = "subitem4")
+      ),
+      menuItem(
+        "Contacts",
+        tabName = "contacts",
+        icon = icon("address-book")
       )
     )
   )
@@ -134,6 +134,9 @@ body <- dashboardBody(
         ),
         tabItem("subitem2",
           omicsBioAnalytics::eda()
+        ),
+        tabItem("subitem3",
+          omicsBioAnalytics::dea()
         ),
         tabItem(
           tabName = "methods",
