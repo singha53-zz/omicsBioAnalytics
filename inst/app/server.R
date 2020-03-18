@@ -1,3 +1,5 @@
+options(repos=structure(BiocManager::repositories())) ## repository configuration of bioconductor packages
+
 # load libraries
 library("shiny");
 library("shinyBS");
