@@ -1,9 +1,3 @@
-# load libraries
-# devtools::install_github("singha53/omicsBioAnalytics", force = TRUE)
-library("omicsBioAnalytics")
-library("shiny")
-library("shinydashboard")
-
 # Header
 header <- dashboardHeader(
   title = "Omics BioAnalytics",
