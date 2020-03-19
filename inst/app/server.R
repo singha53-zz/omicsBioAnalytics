@@ -16,7 +16,7 @@ while(flag){
 
 function(input, output, session) {
 
-  print(Sys.getenv("S3BUCKET"))
+  print(Sys.getenv())
 
   # Demographics data upload
   getDemoData <- reactive({
@@ -494,14 +494,17 @@ function(input, output, session) {
           ggsave(paste0(tempdir(), "/", paste(userID, name, fdr, sep="-"), ".png"), volcanoPlot, device = "png")
         })
       })
-      s3sync(list.files(tempdir()), bucket = S3Bucket, direction = "upload")
-
-
+      s3sync(grep(userID, list.files(tempdir()), value = TRUE), bucket = S3Bucket, direction = "upload")
 
       # Upon completion of analysis
       output$msg <- renderText({
         paste0("If you have an Alexa device please say, 'Alexa, start omics bioanalytics' to begin. \n Please use the following id to access your analysis when prompted by Alexa: ", userID)
       })
     }
+  })
+
+  # delete temp files
+  session$onSessionEnded(function() {
+    sapply(grep(userID, list.files(tempdir(), full.names = TRUE), value = TRUE), file.remove)
   })
 }
