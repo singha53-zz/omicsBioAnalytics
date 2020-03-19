@@ -85,6 +85,23 @@ data](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/pat
   - use of Shiny modules to improve server-side code
   - use of R6Class to improve code
 
+## Challenges
+
+  - .Renvion worked locally but not on shinyapps.io, therefore I set the
+    env upon app using inst/app/makeEnvVars.R with the following
+    contents:
+
+<!-- end list -->
+
+``` r
+saveRDS("s3-bucket-name", "S3BUCKET.rds")
+saveRDS("aws-access-key", "AWS_ACCESS_KEY_ID.rds")
+saveRDS("aws-secret-access-key", "AWS_SECRET_ACCESS_KEY.rds")
+saveRDS("aws-region", "AWS_DEFAULT_REGION.rds")
+```
+
+> The above script is sourced in global.R and the env are set.
+
 ## Contributing
 
 If you’d like to contribute, please fork the repository and use a
