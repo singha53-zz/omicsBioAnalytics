@@ -1,19 +1,22 @@
-options(repos=structure(BiocManager::repositories())) ## repository configuration of bioconductor packages
-
-# load libraries
-library("shiny");
-library("shinyBS");
-library("plotly");
-library("omicsBioAnalytics");
-library("googleVis");
-library("limma")
-
-## global variables
 ## set colors for binary groups
 lvl1Color <- "#66C2A5"
 lvl2Color <- "#FC8D62"
 
+S3Bucket <- Sys.getenv("S3BUCKET")
+previousWorkloads <- sapply(get_bucket(bucket = S3Bucket), function(i){
+  strsplit(i$Key, "-")[[1]][1]
+})
+flag <- TRUE
+while(flag){
+  userID <- paste(sample(0:9, 5), collapse = "")
+  if(!(userID %in% previousWorkloads)){
+    flag <- FALSE
+  }
+}
+
 function(input, output, session) {
+
+  print(Sys.getenv("S3BUCKET"))
 
   # Demographics data upload
   getDemoData <- reactive({
@@ -38,7 +41,6 @@ function(input, output, session) {
     req(input$omicsData)
     omicsData <- lapply(input$omicsData$datapath, read.csv, header = TRUE, sep = input$sep)
     names(omicsData) <- gsub(".csv|.tsv", "", input$omicsData$name)
-    lapply(omicsData, head)
     omicsData
   })
 
@@ -283,8 +285,8 @@ function(input, output, session) {
           ),
             column(
               8,
-              h3("Which clinical variables are associated with major sources of variation in the gene expression data?", align = "center"),
-              plotlyOutput(paste("pcClinVarPlot", i, sep="_"), width = "100%")
+              h3("Which clinical variables are associated with major sources of variation in the expression data?", align = "center"),
+              plotly::plotlyOutput(paste("pcClinVarPlot", i, sep="_"), width = "100%")
             ))
         )
       })
@@ -335,9 +337,9 @@ function(input, output, session) {
                 sliderInput(paste("fdr", i, sep="_"), h3("Select FDR threshold", align = "center"),
                   min = 0.05, max = 0.5, value = 0.05))),
             fluidRow(
-              column(6, plotlyOutput(paste("volcanoPlot", i, sep="_"))),
+              column(6, plotly::plotlyOutput(paste("volcanoPlot", i, sep="_"))),
               column(6,
-                plotlyOutput(paste("boxplot", i, sep="_"))
+                plotly::plotlyOutput(paste("boxplot", i, sep="_"))
               )),
             fluidRow(column(8, h4(textOutput(paste("statement", i, sep="_")))),
               column(4, actionButton(paste("button", i, sep="_"), "Significant variables", icon = icon("table")),
@@ -442,10 +444,6 @@ function(input, output, session) {
                   adj.P.Val = signif(adj.P.Val, 2),
                   sig = signif(sig, 2)) %>%
                 dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
-
-
-
-
           })
         }
       )})
@@ -456,5 +454,54 @@ function(input, output, session) {
       return(returnedValue)
     })
     outputOptions(output, "analysisRan", suspendWhenHidden = FALSE)
+  })
+
+
+  # Voice-enabled analytics
+  observeEvent(input$alexa, {
+
+    output$msg <- renderText({
+      "Alexa is taking a look at your data, please wait..."
+    })
+
+    if(any(c(is.null(input$demo), is.null(input$omicsData), is.null(input$responseVar)))) {
+      output$msg <- renderText({
+        "Missing the required data files and response selection!"
+      })
+    } else {
+
+      diffexp = function(datasets, response){
+        design <- model.matrix(~response)
+        lapply(datasets, function(i){
+          fit <- eBayes(lmFit(t(i), design))
+          top <- topTable(fit, coef = 2, adjust.method = "BH", n = nrow(fit), sort.by="none")
+          top %>% mutate(FeatureName = colnames(i),
+            sig = -log10(P.Value)) %>%
+            arrange(P.Value)
+        })
+      }
+      dexpResults <- diffexp(heartFailure$omicsData, heartFailure$demo[, "hospitalizations"])
+
+      dexpResults <- lapply(names(dexpResults), function(name){
+        lapply(c(0.01, 0.05, 0.1, 0.2), function(fdr){
+          volcanoPlot <- dexpResults[[name]] %>%
+            mutate(Significant=ifelse(adj.P.Val < fdr, paste("FDR < ", fdr), "Not Sig")) %>%
+            ggplot(aes(x = logFC, y = sig, color = Significant)) +
+            geom_point() +
+            ylab("-log10(p-value)") +
+            xlab(expression("log2 fold-change")) +
+            theme_bw()
+          ggsave(paste0(tempdir(), "/", paste(userID, name, fdr, sep="-"), ".png"), volcanoPlot, device = "png")
+        })
+      })
+      s3sync(list.files(tempdir()), bucket = S3Bucket, direction = "upload")
+
+
+
+      # Upon completion of analysis
+      output$msg <- renderText({
+        paste0("If you have an Alexa device please say, 'Alexa, start omics bioanalytics' to begin. \n Please use the following id to access your analysis when prompted by Alexa: ", userID)
+      })
+    }
   })
 }
