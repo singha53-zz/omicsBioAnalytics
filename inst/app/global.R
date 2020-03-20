@@ -17,4 +17,5 @@ source("makeEnvVars.R")
 Sys.setenv("S3BUCKET" = readRDS("S3BUCKET.rds"),
   "AWS_ACCESS_KEY_ID" = readRDS("AWS_ACCESS_KEY_ID.rds"),
   "AWS_SECRET_ACCESS_KEY" = readRDS("AWS_SECRET_ACCESS_KEY.rds"),
-  "AWS_DEFAULT_REGION" = readRDS("AWS_DEFAULT_REGION.rds"))
+  "AWS_DEFAULT_REGION" = readRDS("AWS_DEFAULT_REGION.rds"),
+  "TABLE_NAME" = readRDS("TABLE_NAME.rds"))
