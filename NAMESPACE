@@ -1,3 +1,6 @@
+export(map_attributes)
+export(put_item)
+export(dynamoHTTP)
 export(dataUpload)
 export(patientCharacteristics)
 export(splitData)
