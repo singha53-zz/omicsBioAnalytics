@@ -38,7 +38,7 @@ pcaHeatmap = function(pcs, demo){
       levels = unique(Threshold))) %>%
     mutate(Value = factor(Value, levels = c("p < 0.01", "0.01 < p < 0.05", "0.05 < p < 0.10", "p > 0.10"))) %>%
     ggplot(aes(Threshold, Variable)) +
-    geom_tile(aes(fill = Value), colour = "white") + scale_fill_manual(values = rev(brewer.pal(n = 8,
+    geom_tile(aes(fill = Value), colour = "white") + scale_fill_manual(values = rev(RColorBrewer::brewer.pal(n = 8,
       name = "Blues")[c(2, 4, 6, 8)])) + customTheme(sizeStripFont = 10,
         xAngle = 40, hjust = 1, vjust = 1, xSize = 10, ySize = 10,
         xAxisSize = 10, yAxisSize = 10) + xlab("") + ylab("")
