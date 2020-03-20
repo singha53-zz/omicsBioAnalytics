@@ -2,21 +2,23 @@
 lvl1Color <- "#66C2A5"
 lvl2Color <- "#FC8D62"
 
+dynamodbTableName <- Sys.getenv("TABLE_NAME")
 S3Bucket <- Sys.getenv("S3BUCKET")
 previousWorkloads <- sapply(get_bucket(bucket = S3Bucket), function(i){
   strsplit(i$Key, "-")[[1]][1]
 })
 flag <- TRUE
 while(flag){
-  userID <- paste(sample(0:9, 5), collapse = "")
+  userID <- paste(sample(0:9, 7), collapse = "")
   if(!(userID %in% previousWorkloads)){
     flag <- FALSE
   }
 }
 
-function(input, output, session) {
+# test upload to dynamoDB
+omicsBioAnalytics::put_item(dynamodbTableName, list(id = userID, phoneNumber= jsonlite::toJSON("50 subjects")))
 
-  print(Sys.getenv())
+function(input, output, session) {
 
   # Demographics data upload
   getDemoData <- reactive({
@@ -155,7 +157,7 @@ function(input, output, session) {
           return(NULL)
         }
       })
-      output$tbl = renderDataTable( assumptions(), options = list(lengthChange = FALSE))
+      output$tbl = DT::renderDataTable( assumptions(), options = list(lengthChange = FALSE))
 
       output$lmAssumptions <- renderText({
         if(input$test == "ttest"){
@@ -343,7 +345,7 @@ function(input, output, session) {
               )),
             fluidRow(column(8, h4(textOutput(paste("statement", i, sep="_")))),
               column(4, actionButton(paste("button", i, sep="_"), "Significant variables", icon = icon("table")),
-                bsModal(paste("modal", i, sep="_"), "Data Table", paste("button", i, sep="_"), size = "large",
+                bsModal(paste("modal", i, sep="_"), "Differentially expressed variables.", paste("button", i, sep="_"), size = "large",
                   DT::dataTableOutput(paste("sig", i, sep="_")))))
           )
         })
