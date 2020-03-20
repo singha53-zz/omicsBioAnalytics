@@ -34,7 +34,7 @@ pcaHeatmap = function(pcs, demo){
   pvalheatmap[pvalheatmap == "0.1"] <- "0.05 < p < 0.10"
   pvalheatmap[pvalheatmap == "1"] <- "p > 0.10"
   pvalheatmap %>% as.data.frame %>% mutate(Variable = rownames(.)) %>%
-    gather(Threshold, Value, -Variable) %>% mutate(Threshold = factor(Threshold,
+    tidyr::gather(Threshold, Value, -Variable) %>% mutate(Threshold = factor(Threshold,
       levels = unique(Threshold))) %>%
     mutate(Value = factor(Value, levels = c("p < 0.01", "0.01 < p < 0.05", "0.05 < p < 0.10", "p > 0.10"))) %>%
     ggplot(aes(Threshold, Variable)) +
