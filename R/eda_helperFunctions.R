@@ -1,12 +1,12 @@
 #' @export
 #' @rdname pcaPairs
 pcaPairs = function(pcs,y,col){
-  lattice::trellis.par.set(superpose.symbol = list(pch = c(19,19),
+  trellis.par.set(superpose.symbol = list(pch = c(19,19),
     cex = c(1,1), col = col), superpose.line = list(col=col))
   pch_vector <- c(0,6,12)
   my_settings <- list(superpose.symbol=list(alpha = rep(1, 9)), col=col,
     cex=rep(0.8, 9), fill= col, font = rep(1, 9), pch=pch_vector)
-  lattice::trellis.par.set(my_settings)
+  trellis.par.set(my_settings)
   caret::featurePlot(x = pcs$x,
     y = y,
     plot = "ellipse",
