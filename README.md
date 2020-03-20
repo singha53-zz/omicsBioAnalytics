@@ -25,6 +25,26 @@ devtools::install_github("singha53/omicsBioAnalytics")
 
 ## Get started
 
+  - Step 1) add inst/app/makeEnvVars.R with the following contents
+    (.Renvion worked locally but not on shinyapps.io):
+
+<!-- end list -->
+
+``` r
+saveRDS("your-s3-bucket-name", "S3BUCKET.rds")
+saveRDS("your-aws-access-key", "AWS_ACCESS_KEY_ID.rds")
+saveRDS("your-aws-secret-access-key", "AWS_SECRET_ACCESS_KEY.rds")
+saveRDS("your-aws-region", "AWS_DEFAULT_REGION.rds")
+saveRDS("your-dynamodb-table-name", "TABLE_NAME.rds")
+```
+
+> The above script is sourced in global.R and the env are set locally
+> and on shinyapps.io at runtime.
+
+  - Step 2) run the Shiny webapp
+
+<!-- end list -->
+
 ``` r
 library(omicsBioAnalytics);
 omicsBioAnalytics::startApp()
@@ -56,8 +76,8 @@ data(heartFailure)
 
 ### How to generate?
 
-[steps to reproduce
-pathwayDB](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/caseStudy/caseStudyData.md)
+[steps to reproduce the heart failure
+data](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/caseStudy/caseStudyData.md)
 
 ### Pathway datasets
 
@@ -70,8 +90,8 @@ data(pathwayDB)
 
 ### How to generate?
 
-[steps to reproduce the heartFailure
-data](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/pathwayDB/pathways.md)
+[steps to reproduce the pathway
+database](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/pathwayDB/pathways.md)
 
 ## Features
 
@@ -85,23 +105,6 @@ data](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/pat
   - use of Shiny modules to improve server-side code
   - use of R6Class to improve code
 
-## Challenges
-
-  - .Renvion worked locally but not on shinyapps.io, therefore I set the
-    env upon app using inst/app/makeEnvVars.R with the following
-    contents:
-
-<!-- end list -->
-
-``` r
-saveRDS("s3-bucket-name", "S3BUCKET.rds")
-saveRDS("aws-access-key", "AWS_ACCESS_KEY_ID.rds")
-saveRDS("aws-secret-access-key", "AWS_SECRET_ACCESS_KEY.rds")
-saveRDS("aws-region", "AWS_DEFAULT_REGION.rds")
-```
-
-> The above script is sourced in global.R and the env are set.
-
 ## Contributing
 
 If you’d like to contribute, please fork the repository and use a
@@ -110,6 +113,13 @@ feature branch. Pull requests are warmly welcome.
 ## Links
 
   - Repository: <https://github.com/singha53/omicsBioAnalytics/>
+
+## References
+
+  - [Shiny dashboard best
+    practices](https://www.inwt-statistics.com/read-blog/best-practice-development-of-robust-shiny-dashboards-as-r-packages.html)
+  - [Cloudyr dynamodb orphaned
+    R-library](https://github.com/cloudyr/aws.dynamodb)
 
 ## Copyright and license
 
