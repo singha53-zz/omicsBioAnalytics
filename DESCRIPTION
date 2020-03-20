@@ -19,6 +19,7 @@ Imports:
  limma (>= 3.40.6),
  DT (>= 0.11),
  lattice (>= 0.20-38),
+ ellipse (>= 0.4.1),
  jsonlite (>= 1.6)
 Suggests: 
  testthat (>= 2.1.0)
