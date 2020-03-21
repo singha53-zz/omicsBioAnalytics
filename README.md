@@ -54,41 +54,40 @@ omicsBioAnalytics::startApp()
 
 ### Web-app
 
-  - RShiny
-  - RStudio
+  - RShiny (v3.6.1)
+  - RStudio (v1.2.5019)
 
 ### Multi-model app
 
-  - Alexa Skill Kit
-  - JavaScript (Node.js, v8.11.2)
-  - npm (v6.4.0)
+  - [Omics BioAnalytics Alexa
+    Skill](https://github.com/singha53/omics-bioanalytics-alexa-skill)
 
 ## Sample datasets used for this app
 
 ### Heart Failure case study
 
-### How to use?
+#### How to use?
 
 ``` r
 library(omicsBioAnalytics);
 data(heartFailure)
 ```
 
-### How to generate?
+#### How to generate?
 
 [steps to reproduce the heart failure
 data](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/caseStudy/caseStudyData.md)
 
 ### Pathway datasets
 
-### How to use?
+#### How to use?
 
 ``` r
 library(omicsBioAnalytics);
 data(pathwayDB)
 ```
 
-### How to generate?
+#### How to generate?
 
 [steps to reproduce the pathway
 database](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/pathwayDB/pathways.md)
@@ -99,6 +98,7 @@ database](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata
     (samples/observations)
   - interactive visualizations (heatmaps, networks, statistical graphs)
   - RShiny app as an R-package
+  - voice-enabled analytics using an Alexa Skill
 
 ## Room for improvements
 
@@ -109,6 +109,10 @@ database](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata
 
 If you’d like to contribute, please fork the repository and use a
 feature branch. Pull requests are warmly welcome.
+
+Note: if you build your own omicsBioAnalytics R-package and host it on
+your own github, then prior to deploying the app to shinyapps.io, make
+sure to restart your R session, then install the package from Github.
 
 ## Links
 
