@@ -1,3 +1,4 @@
+
 # Header
 header <- dashboardHeader(
   title = "Omics BioAnalytics",
@@ -110,14 +111,20 @@ sidebar <- dashboardSidebar(
 
 ## Body
 body <- dashboardBody(
-    tags$style(".content {background-color: white;}"),
-    tags$style(type="text/css", ".modelInput label{ display: table-cell; }
-                .modelInput .form-group { display: table-row;}"),
+    # tags$style(".content {background-color: white;}"),
+    # tags$style(type="text/css", ".modelInput label{ display: table-cell; }
+    #             .modelInput .form-group { display: table-row;}"),
+  tags$head(
+    tags$link(
+      rel = "stylesheet",
+      type = "text/css",
+      href = "styles.css"
+    )),
     fluidPage(
       tabItems(
         tabItem(
           tabName = "overview",
-          "overview"
+          fluidRow(HTML("<img src='app-architecture.png' id='app-architecture'/>"))
         ),
         tabItem(
           tabName = "data",
