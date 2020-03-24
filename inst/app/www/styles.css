@@ -1,0 +1,12 @@
+/* Logo */
+#app-architecture {
+  max-width: 100%;
+}
+
+/* side bar font size */
+.main-sidebar {
+  font-size: 20px;
+}
+
+/* make the background color white */
+.content-wrapper {background-color: white;}
