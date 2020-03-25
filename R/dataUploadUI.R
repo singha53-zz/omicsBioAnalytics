@@ -14,11 +14,7 @@ dataUpload <- function() {
         label="Omics data (1 or more csv files)",
         multiple = TRUE),
         actionButton("run", "Run Analysis", icon = icon("play"),
-          style="color: #fff; background-color: #337ab7; border-color: #2e6da4")),
-      column(6,
-        uiOutput("dataGenSym")
-        )
-      ),
+          style="color: #fff; background-color: #337ab7; border-color: #2e6da4"))),
     fluidRow(
       column(12,
         h2("Voice-enabled analytics"),

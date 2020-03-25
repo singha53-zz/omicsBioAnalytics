@@ -55,21 +55,6 @@ function(input, output, session) {
   })
   outputOptions(output, "performPathwayAnalysis", suspendWhenHidden = FALSE)
 
-  # performPathwayAnalysis <- reactive({lapply(names(getOmicsData()), function(i){
-  #   names(i)
-  # })})
-  # print(performPathwayAnalysis())
-
-  # select dataset
-  output$dataGenSym <- renderUI({
-    checkboxGroupInput("dataGenSym", "Which datasets are labelled with gene symbols?",
-      choiceNames =
-        as.list(names(getOmicsData())),
-      choiceValues =
-        as.list(names(getOmicsData()))
-    )
-  })
-
   # Do not show analysis sidemenu at startup!!
   output$analysisRan <- reactive({
     returnedValue = FALSE
