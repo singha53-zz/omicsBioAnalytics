@@ -8,9 +8,18 @@ suppressPackageStartupMessages(library("shinyBS"));
 suppressPackageStartupMessages(library("plotly"));
 suppressPackageStartupMessages(library("omicsBioAnalytics")); # devtools::install_github("singha53/omicsBioAnalytics", force = TRUE)
 suppressPackageStartupMessages(library("googleVis"));
-suppressPackageStartupMessages(library("limma"))
-suppressPackageStartupMessages(library("lattice"))
-suppressPackageStartupMessages(library("aws.s3"))
+suppressPackageStartupMessages(library("limma"));
+suppressPackageStartupMessages(library("lattice"));
+suppressPackageStartupMessages(library("aws.s3"));
+
+## Import data
+data("pathwayDB")
+
+## pathways to use
+kegg <- subset(pathwayDB, DB == "KEGG_2019_Human")
+kegg <- split(kegg$Genes, as.character(kegg$Pathways))
+wikipathways <- subset(pathwayDB, DB == "WikiPathways_2019_Human")
+wikipathways <- split(wikipathways$Genes, as.character(wikipathways$Pathways))
 
 # set env vars
 source("makeEnvVars.R")
