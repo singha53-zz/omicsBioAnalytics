@@ -17,6 +17,7 @@ Imports:
  RColorBrewer (>= 1.1-2),
  plotly (>= 4.9.1),
  googleVis (>= 0.6.4),
+ visNetwork (>= 2.0.9),
  caret (>= 6.0-84),
  limma (>= 3.40.6),
  DT (>= 0.11),
