@@ -16,7 +16,7 @@ while(flag){
 }
 
 # test upload to dynamoDB
-omicsBioAnalytics::put_item(dynamodbTableName, list(id = userID, phoneNumber= jsonlite::toJSON("50 subjects")))
+# omicsBioAnalytics::put_item(dynamodbTableName, list(id = userID, phoneNumber= jsonlite::toJSON("50 subjects")))
 
 function(input, output, session) {
 
@@ -39,12 +39,26 @@ function(input, output, session) {
   })
 
   # omics data upload
-  getOmicsData <-reactive({
+  getOmicsData <- reactive({
     req(input$omicsData)
     omicsData <- lapply(input$omicsData$datapath, read.csv, header = TRUE, sep = input$sep)
     names(omicsData) <- gsub(".csv|.tsv", "", input$omicsData$name)
     omicsData
   })
+
+  # determine which datasets to perform gene set enrichment analysis on?
+  output$performPathwayAnalysis <- reactive({
+    datasetNames <- sapply(names(getOmicsData()), function(i){
+      length(intersect(colnames(getOmicsData()[[i]]), unlist(kegg))) > 5
+    })
+    names(datasetNames)[datasetNames]
+  })
+  outputOptions(output, "performPathwayAnalysis", suspendWhenHidden = FALSE)
+
+  # performPathwayAnalysis <- reactive({lapply(names(getOmicsData()), function(i){
+  #   names(i)
+  # })})
+  # print(performPathwayAnalysis())
 
   # select dataset
   output$dataGenSym <- renderUI({
@@ -346,8 +360,36 @@ function(input, output, session) {
             fluidRow(column(8, h4(textOutput(paste("statement", i, sep="_")))),
               column(4, actionButton(paste("button", i, sep="_"), "Significant variables", icon = icon("table")),
                 bsModal(paste("modal", i, sep="_"), "Differentially expressed variables.", paste("button", i, sep="_"), size = "large",
-                  DT::dataTableOutput(paste("sig", i, sep="_")))))
-          )
+                  DT::dataTableOutput(paste("sig", i, sep="_"))))),
+            hr(),
+            conditionalPanel(
+              condition = paste0("output.performPathwayAnalysis.indexOf('", i, "') != -1"),
+            fluidRow(
+              column(12, plotOutput(paste("gsetPlot", i, sep="_"), height = "250px")),
+              column(2, ""),
+              column(2, actionButton(paste("keggButton", i, sep="_"), "Significant KEGG pathways", icon = icon("table")),
+                bsModal(paste("keggModal", i, sep="_"), "Significant KEGG pathways",
+                  paste("keggButton", i, sep="_"), size = "large",
+                  DT::dataTableOutput(paste("sigKegg", i, sep="_")))),
+              column(2, ""),
+              column(2, ""),
+              column(2, actionButton(paste("wikiButton", i, sep="_"), "Significant Wiki pathways", icon = icon("table")),
+                bsModal(paste("wikiModal", i, sep="_"), "Significant Wiki pathways",
+                  paste("wikiButton", i, sep="_"), size = "large",
+                  DT::dataTableOutput(paste("sigWiki", i, sep="_")))),
+              column(2, "")
+              ),
+              fluidRow(column(6, style = 'padding: 0px 0px 0px 0px;',
+                h4("Network of all up-regulated pathways", align = "center"),
+                visNetwork::visNetworkOutput(paste("upregulated", i, sep="_"), height = "400px", width = "100%")
+              ),
+                column(6, style = 'padding: 0px 0px 0px 0px;',
+                  h4("Network of all down-regulated pathways", align = "center"),
+                  visNetwork::visNetworkOutput(paste("downregulated", i, sep="_"), height = "400px", width = "100%")
+                )),
+              h6("Zoom in to see pathway labels")
+            )
+            )
         })
 
         do.call(tabsetPanel, myTabs)
@@ -446,6 +488,130 @@ function(input, output, session) {
                   adj.P.Val = signif(adj.P.Val, 2),
                   sig = signif(sig, 2)) %>%
                 dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
+
+            ## Differential pathway analysis
+            if(length(intersect(colnames(getOmicsData()[[i]]), unlist(kegg)) > 5) &
+                length(intersect(colnames(getOmicsData()[[i]]), unlist(wikipathways)) > 5)){
+              ## KEGG pathways
+              indKegg <- lapply(kegg, function(pathway){
+                which(colnames(getOmicsData()[[i]]) %in% pathway)
+              })
+              indKegg <- indKegg[sapply(indKegg, length) > 5]
+              gsetKegg <- camera(t(getOmicsData()[[i]]), indKegg, design, contrast = 2)
+              gsetKegg$adj.P.Val <- p.adjust(gsetKegg$PValue, "BH")
+              ## Wikipathways
+              indWiki <- lapply(wikipathways, function(pathway){
+                which(colnames(getOmicsData()[[i]]) %in% pathway)
+              })
+              indWiki <- indWiki[sapply(indWiki, length) > 5]
+              gsetWiki <- camera(t(getOmicsData()[[i]]), indWiki, design, contrast = 2)
+              gsetWiki$adj.P.Val <- p.adjust(gsetWiki$PValue, "BH")
+            } else {
+              gsetKegg <- gsetWiki <- NULL
+            }
+
+
+            output[[paste("gsetPlot", i, sep="_")]] <- renderPlot({
+              if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
+                par(mar=c(4,4,1,1))
+                par(mfrow = c(1, 2))
+                col <- rep("grey", length(gsetKegg$adj.P.Val))
+                col[gsetKegg$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetKegg$Direction == "Up"] <- "tomato"
+                col[gsetKegg$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetKegg$Direction == "Down"] <- "skyblue"
+                plot(gsetKegg$adj.P.Val, log="x", col = col, pch = 19,
+                  ylim = c(0,1), main = "KEGG pathways",
+                  ylab="FDR", xlab = "Number of pathways")
+                legend("topleft", c("up-regulated", "down-regulated", "not signficant"),
+                  col = c("tomato","skyblue","grey"), pch = 19, bty = "n")
+                col <- rep("grey", length(gsetWiki$adj.P.Val))
+                col[gsetWiki$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetWiki$Direction == "Up"] <- "tomato"
+                col[gsetWiki$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetWiki$Direction == "Down"] <- "skyblue"
+                plot(gsetWiki$adj.P.Val, log="x", col = col, pch = 19,
+                  ylim = c(0,1), main = "WikiPathways",
+                  ylab="FDR", xlab = "Number of pathways")
+                legend("topleft", c("up-regulated", "down-regulated", "not signficant"),
+                  col = c("tomato","skyblue","grey"), pch = 19, bty = "n")
+              } else {
+                ""
+              }
+            })
+
+            output[[paste("sigKegg", i, sep="_")]] = DT::renderDataTable(
+              if(!is.null(gsetKegg)){
+                gsetKegg %>% mutate(Pathway = rownames(.)) %>%
+                  filter(adj.P.Val < input[[paste("fdr", i, sep="_")]]) %>%
+                  mutate(PValue = signif(PValue, 3), adj.P.Val = signif(adj.P.Val, 3)) %>%
+                  dplyr::select(Pathway, NGenes, Direction, PValue, adj.P.Val)
+              } else {
+                ""
+              }, options = list(lengthChange = FALSE))
+            output[[paste("sigWiki", i, sep="_")]] = DT::renderDataTable(
+              if(!is.null(gsetWiki)){
+                gsetWiki %>% mutate(Pathway = rownames(.)) %>%
+                  filter(adj.P.Val < input[[paste("fdr", i, sep="_")]]) %>%
+                  mutate(PValue = signif(PValue, 3), adj.P.Val = signif(adj.P.Val, 3)) %>%
+                  dplyr::select(Pathway, NGenes, Direction, PValue, adj.P.Val)
+              } else {
+                ""
+              }, options = list(lengthChange = FALSE))
+
+            int = function (s1, s2) {
+              length(intersect(s1, s2))/length(union(s1, s2))
+            }
+            output[[paste("upregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
+              if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
+                gset <- rbind(gsetKegg, gsetWiki)
+                pathway.genes <- lapply(append(indKegg, indWiki), function(ind){
+                  colnames(getOmicsData()[[i]])[ind]
+                })
+                ## up-regulated
+                up.pathways <- gset[gset$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gset$Direction == "Up", , drop=FALSE]
+                if(nrow(up.pathways) > 1){
+                  ref <- pathway.genes[rownames(up.pathways)]
+                  links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
+                    dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
+                    dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
+                      ref[as.character(to)], omicsBioAnalytics::jaccard)))
+                  edges <- links[links$int > 0.1, ]
+                  nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
+                  nodes$label <- nodes$id
+                  nodes$color <- "salmon"
+                  print(dim(edges))
+                  print(dim(nodes))
+                  visNetwork::visNetwork(nodes, edges)
+                } else {
+                  return(NULL)
+                }
+              } else {
+                return(NULL)
+              }
+            })
+            output[[paste("downregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
+              if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
+                gset <- rbind(gsetKegg, gsetWiki)
+                pathway.genes <- lapply(append(indKegg, indWiki), function(ind){
+                  colnames(getOmicsData()[[i]])[ind]
+                })
+                ## down-regulated
+                down.pathways <- gset[gset$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gset$Direction == "Down", , drop=FALSE]
+                if(nrow(down.pathways) > 1){
+                  ref <- pathway.genes[rownames(down.pathways)]
+                  links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
+                    dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
+                    dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
+                      ref[as.character(to)], omicsBioAnalytics::jaccard)))
+                  edges <- links[links$int > 0.1, ]
+                  nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
+                  nodes$label <- nodes$id
+                  nodes$color <- "skyblue"
+                  visNetwork::visNetwork(nodes, edges)
+                } else {
+                  return(NULL)
+                }
+              } else {
+                return(NULL)
+              }
+            })
           })
         }
       )})
@@ -456,6 +622,21 @@ function(input, output, session) {
       return(returnedValue)
     })
     outputOptions(output, "analysisRan", suspendWhenHidden = FALSE)
+
+
+    observe({
+      print(input$dataGenSym)
+    })
+
+    ################################################################################
+    #
+    # Biomarker Discovery Analysis
+    #
+    ################################################################################
+
+
+
+
   })
 
 
