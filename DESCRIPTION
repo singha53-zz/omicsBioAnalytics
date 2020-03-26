@@ -23,7 +23,10 @@ Imports:
  DT (>= 0.11),
  lattice (>= 0.20-38),
  ellipse (>= 0.4.1),
- jsonlite (>= 1.6)
+ jsonlite (>= 1.6),
+ pheatmap (>= 1.0.12),
+ canvasXpress (>= 1.26.5),
+ enrichR (>= 2.1)
 Suggests: 
  testthat (>= 2.1.0)
 License: MIT
