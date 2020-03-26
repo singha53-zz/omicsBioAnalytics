@@ -13,6 +13,11 @@ suppressPackageStartupMessages(library("lattice"));
 suppressPackageStartupMessages(library("aws.s3"));
 suppressPackageStartupMessages(library("canvasXpress"));
 suppressPackageStartupMessages(library("enrichR"));
+suppressPackageStartupMessages(library("visNetwork"));
+suppressPackageStartupMessages(library("caret"));
+suppressPackageStartupMessages(library("glmnet"));
+
+
 
 ## Import data
 data("pathwayDB")
