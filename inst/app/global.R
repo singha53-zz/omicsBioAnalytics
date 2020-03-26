@@ -11,6 +11,8 @@ suppressPackageStartupMessages(library("googleVis"));
 suppressPackageStartupMessages(library("limma"));
 suppressPackageStartupMessages(library("lattice"));
 suppressPackageStartupMessages(library("aws.s3"));
+suppressPackageStartupMessages(library("canvasXpress"));
+suppressPackageStartupMessages(library("enrichR"));
 
 ## Import data
 data("pathwayDB")
