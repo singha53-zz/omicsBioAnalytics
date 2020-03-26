@@ -629,23 +629,23 @@ function(input, output, session) {
 
       ## set control parameters
       if(kfolds == "fiveFold"){
-        ctrl <- trainControl(method = "repeatedcv",
+        ctrl <- caret::trainControl(method = "repeatedcv",
           number = 5,
           repeats = n_repeats,
           summaryFunction = twoClassSummary,
           classProbs = TRUE,
           savePredictions = TRUE)
         set.seed(123)
-        ctrl$index <- createMultiFolds(demo[, input$responseVar], 5, n_repeats)
+        ctrl$index <- caret::createMultiFolds(demo[, input$responseVar], 5, n_repeats)
       } else {
-        ctrl <- trainControl(method = "repeatedcv",
+        ctrl <- caret::trainControl(method = "repeatedcv",
           number = 10,
           repeats = n_repeats,
           summaryFunction = twoClassSummary,
           classProbs = TRUE,
           savePredictions = TRUE)
         set.seed(456)
-        ctrl$index <- createMultiFolds(demo[, input$responseVar], 10, n_repeats)
+        ctrl$index <- caret::createMultiFolds(demo[, input$responseVar], 10, n_repeats)
       }
 
       enetGrid = expand.grid(alpha = seq(alphaMin, alphaMax, length.out = alphalength),
@@ -660,7 +660,7 @@ function(input, output, session) {
             # Increment the progress bar, and update the detail text.
             incProgress(1/length(datasets), detail = paste("Building ", dat, " model..."))
 
-            mods[[dat]] <- train(x=getOmicsData()[[dat]], y=demo[, input$responseVar],
+            mods[[dat]] <- caret::train(x=getOmicsData()[[dat]], y=demo[, input$responseVar],
               preProc=c("center", "scale"),
               method = "glmnet",
               metric = "ROC",
