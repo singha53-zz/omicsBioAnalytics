@@ -26,7 +26,8 @@ Imports:
  jsonlite (>= 1.6),
  pheatmap (>= 1.0.12),
  canvasXpress (>= 1.26.5),
- enrichR (>= 2.1)
+ enrichR (>= 2.1),
+ glmnet (>= 2.0-18)
 Suggests: 
  testthat (>= 2.1.0)
 License: MIT
