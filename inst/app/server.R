@@ -736,6 +736,8 @@ function(input, output, session) {
           mat <- as.matrix(mat[,-1])
           diag(mat) <- 1
           mat <- mat[c(single, "Ensemble"),c(single, "Ensemble")]
+          print("mat")
+          print(mat)
           output$delongPvalues <- renderPlot({
             pheatmap::pheatmap(mat, display_numbers = matrix(ifelse(mat < 0.05, paste(signif(mat,2), "*"), signif(mat, 2)), nrow(mat)), color = colorRampPalette(c("lightblue", rep("white", 19)))(20), cluster_cols = FALSE, cluster_rows = FALSE, legend = FALSE, main = "De Long p-values")})
 
@@ -921,7 +923,7 @@ function(input, output, session) {
         panels$Ensemble <- as.character(unlist(ensemblePanel))
 
         Input <- UpSetR::fromList(panels)
-        upset(Input, sets = colnames(Input))
+        UpSetR::upset(Input, sets = colnames(Input))
       })
 
       ## PCA plot
@@ -1049,7 +1051,7 @@ function(input, output, session) {
             variablesClustered=TRUE)
         } else {
           y=t(as.data.frame(dataset[, variables, drop=FALSE]))
-          x = data.frame(Group = grouping)
+          x = data.frame(Group = demo[, input$responseVar])
           colnames(y) <- rownames(x) <- paste0("subj", 1:ncol(y))
 
           canvasXpress(
@@ -1173,7 +1175,7 @@ function(input, output, session) {
 
             shapes <- c("square", "triangle", "circle", "dot", "star",
               "ellipse", "database", "text", "diamond")
-            if(length(unique(group)) < 8){
+            if(length(unique(group)) < length(shapes)){
               nodeShapes <- c(shapes[1:length(unique(group))], "box")
               names(nodeShapes) <- c(names(setdiff(unique(group), "pathway")), "pathway")
             } else {
@@ -1181,8 +1183,8 @@ function(input, output, session) {
               names(nodeShapes) <- unique(group)
             }
 
-            if(length(unique(group)) < length(cbPalette)){
-              nodeColors <- brewer.pal(12, "Set3")[1:length(unique(group))]
+            if(length(unique(group)) < length(shapes)){
+              nodeColors <- RColorBrewer::brewer.pal(12, "Set3")[1:length(unique(group))]
               names(nodeColors) <- unique(group)
             } else {
               nodeColors <- colors()[1:length(unique(group))]  # 657 possibilites
