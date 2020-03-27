@@ -561,8 +561,6 @@ function(input, output, session) {
                   nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
                   nodes$label <- nodes$id
                   nodes$color <- "salmon"
-                  print(dim(edges))
-                  print(dim(nodes))
                   visNetwork::visNetwork(nodes, edges)
                 } else {
                   return(NULL)
@@ -601,27 +599,700 @@ function(input, output, session) {
         }
       )})
 
+    ################################################################################
+    #
+    # Biomarker Discovery Analysis
+    #
+    ################################################################################
+    # update sidebar: let user choose which datasets to use to build models
+    updateCheckboxGroupInput(session, "checkGroup_single",
+      label = "Build biomarker panel(s) using dataset(s):",
+      choices = names(getOmicsData()),
+      selected = names(getOmicsData())
+    )
+    updateCheckboxGroupInput(session, "checkGroup_ensemble",
+      label = "Build ensemble of biomarker panels using dataset(s):",
+      choices = names(getOmicsData()),
+      selected = names(getOmicsData())
+    )
+
+    ## Classification performances
+    observeEvent(input$build, {
+      isolate(alphaMin <- input$alpha[1])
+      isolate(alphaMax <- input$alpha[2])
+      isolate(alphalength <- input$alphaGrid)
+      isolate(kfolds <- input$cvScheme)
+      isolate(n_repeats <- input$n_repeats)
+      isolate(single <- as.character(input$checkGroup_single))
+      isolate(ensem <- as.character(input$checkGroup_ensemble))
+      isolate(datasets <- unique(c(single, ensem)))
+
+      ## set control parameters
+      if(kfolds == "fiveFold"){
+        ctrl <- caret::trainControl(method = "repeatedcv",
+          number = 5,
+          repeats = n_repeats,
+          summaryFunction = twoClassSummary,
+          classProbs = TRUE,
+          savePredictions = TRUE)
+        set.seed(123)
+        ctrl$index <- caret::createMultiFolds(demo[, input$responseVar], 5, n_repeats)
+      } else {
+        ctrl <- caret::trainControl(method = "repeatedcv",
+          number = 10,
+          repeats = n_repeats,
+          summaryFunction = twoClassSummary,
+          classProbs = TRUE,
+          savePredictions = TRUE)
+        set.seed(456)
+        ctrl$index <- caret::createMultiFolds(demo[, input$responseVar], 10, n_repeats)
+      }
+
+      enetGrid = expand.grid(alpha = seq(alphaMin, alphaMax, length.out = alphalength),
+        lambda = seq(0.001, 0.1, by = 0.01))
+
+      withProgress(message = 'Constructing models.',
+        detail = 'This may take a while...', value = 0, {
+          mods <- vector("list", length(datasets))
+          names(mods) <- datasets
+
+          for(dat in datasets){
+            # Increment the progress bar, and update the detail text.
+            incProgress(1/length(datasets), detail = paste("Building ", dat, " model..."))
+
+            mods[[dat]] <- caret::train(x=getOmicsData()[[dat]], y=demo[, input$responseVar],
+              preProc=c("center", "scale"),
+              method = "glmnet",
+              metric = "ROC",
+              tuneGrid = enetGrid,
+              trControl = ctrl)
+          }
+
+          ## Add ensemble panel
+          pred <- lapply(mods, function(i){
+            i$pred
+          }) %>%
+            do.call(rbind, .) %>%
+            as.data.frame() %>%
+            mutate(panel = rep(names(mods), each=nrow(mods[[1]]$pred)))
+          pred <- pred[, -c(1, 4)]
+          colnames(pred)[3] <- "Yes"
+          pred <- pred %>% dplyr::select(obs, rowIndex, Yes:panel)
+          pred$Resample <-  sapply(strsplit(pred$Resample, "\\."), function(i) i[2])
+          pred <- pred %>%
+            filter(panel %in% ensem) %>%
+            group_by(obs, rowIndex, alpha, lambda, Resample) %>%
+            dplyr::summarise(Yes = mean(Yes)) %>%
+            mutate(panel = "Ensemble") %>%
+            dplyr::full_join(pred, .)
+
+          ## Compute classification performance
+          perf <- pred %>%
+            group_by(panel, alpha, lambda, Resample) %>%
+            dplyr::summarise(auc = pROC::roc(obs~Yes, direction = "<")$auc) %>%
+            ungroup %>%
+            group_by(panel, alpha, lambda) %>%
+            dplyr::summarise(Mean = mean(auc),
+              SD = sd(auc)) %>%
+            ungroup() %>%
+            group_by(panel) %>%
+            filter(Mean == max(Mean)) %>%
+            filter(SD == max(SD)) %>%
+            arrange(desc(lambda)) %>%
+            dplyr::slice(1) %>%
+            ungroup() %>%
+            arrange(desc(Mean))
+
+          ## compare classification perforamnce between panels
+          comparePanels <- combn(c(datasets, "Ensemble"), 2)
+          delong <- pred %>%
+            mutate(panel_alpha_lambda = paste(panel, alpha, lambda, sep = "_")) %>%
+            filter(panel_alpha_lambda %in% paste(perf$panel, perf$alpha, perf$lambda, sep = "_")) %>%
+            group_by(obs, rowIndex, alpha, lambda, panel) %>%
+            dplyr::summarise(prob = mean(Yes)) %>%
+            ungroup %>%
+            dplyr::select(obs, rowIndex, panel, prob) %>%
+            tidyr::spread(panel, prob) %>%
+            tidyr::nest() %>%
+            mutate(delongPvalue = purrr::map(data, ~{
+              pvals <- apply(comparePanels, 2, function(i){
+                one <- i[1]; two <- i[2];
+                roc1 <- pROC::roc(.$obs, as.data.frame(.)[, one], direction = "<")
+                roc2 <- pROC::roc(.$obs, as.data.frame(.)[, two], direction = "<")
+                pROC::roc.test(roc1, roc2)$p.value
+              })
+              data.frame(panel1 = comparePanels[1,],
+                panel2=comparePanels[2,],
+                pvalue=pvals)
+            })) %>%
+            tidyr::unnest(delongPvalue)
+          delong$panel1 <- as.character(delong$panel1)
+          delong$panel2 <- as.character(delong$panel2)
+          mat <- data.frame(panel1 = c(delong$panel1, delong$panel2),
+            panel2 = c(delong$panel2, delong$panel1),
+            pvalue = rep(delong$pvalue, 2)) %>%
+            tidyr::spread(panel2, pvalue)
+          rownames(mat) <- mat$panel1
+          mat <- as.matrix(mat[,-1])
+          diag(mat) <- 1
+          mat <- mat[c(single, "Ensemble"),c(single, "Ensemble")]
+          print("mat")
+          print(mat)
+          output$delongPvalues <- renderPlot({
+            pheatmap::pheatmap(mat, display_numbers = matrix(ifelse(mat < 0.05, paste(signif(mat,2), "*"), signif(mat, 2)), nrow(mat)), color = colorRampPalette(c("lightblue", rep("white", 19)))(20), cluster_cols = FALSE, cluster_rows = FALSE, legend = FALSE, main = "De Long p-values")})
+
+          ## Compuate roc curves
+          rocTable <- pred %>%
+            group_by(panel, alpha, lambda, Resample) %>%
+            tidyr::nest() %>%
+            mutate(roc = purrr::map(data, ~{
+              data.frame(tpr = pROC::roc(.$obs,.$Yes, direction = "<")$sensitivities,
+                fpr = (1-pROC::roc(.$obs,.$Yes, direction = "<")$specificities))
+            })) %>%
+            tidyr::unnest(roc) %>%
+            group_by(panel, alpha, lambda, fpr) %>%
+            dplyr::summarise(mean_tpr = mean(tpr), sd_fpr=sd(tpr)) %>%
+            dplyr::inner_join(x = perf, y = ., by = c("panel", "alpha", "lambda"))
+        })
+
+
+      colors <- c("#2ca02c", "#1f77b4", "black", "#ff7f0e","#9467bd", "#d62728")
+      output$rocPlot <- renderPlotly({
+        options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
+        plot_ly(rocTable, x = ~fpr, y = ~mean_tpr, type = 'scatter', mode = 'lines',
+          linetype = ~panel, color = ~panel, source = "auc", key = ~panel, colors = colors) %>%
+          layout(title = 'ROC curves',
+            xaxis = list(title = 'False Positive Rate (FPR)'),
+            yaxis = list (title = 'Average True Positive Rate (TPR)')) %>% layout(legend = list(x = 0.6, y = 0.2))
+      })
+
+      output$aucs <- DT::renderDataTable({
+        DT::datatable(
+          perf %>%
+            mutate(alpha = signif(alpha, 2), lambda = signif(lambda, 2),
+              Mean = signif(Mean, 2), SD = signif(SD, 2)),
+          selection = list(target = "row+column"),
+          options = list(pageLength = nrow(perf), dom = "ft", digits=4))
+      }, width = "50%")
+      proxy = DT::dataTableProxy('aucs')
+      # highlight rows that are selected on plotly output
+      observe({
+
+        event.data = plotly::event_data("plotly_hover", source = "auc")
+
+        if(is.null(event.data)) {
+          rowNums <- NULL
+        } else {
+          rowNums <- row.names(as.data.frame(perf)[perf$panel %in% as.character(event.data$key[[1]]),])
+        }
+
+        proxy %>% DT::selectRows(as.numeric(rowNums))
+      })
+
+      ## Fit single dataset models
+      singlePanelMods <- lapply(1 : length(single), function(i){
+        dataset <- single[i]
+        alpha <- subset(perf, panel == dataset)$alpha
+        lambda <- subset(perf, panel == dataset)$lambda
+        fit <- glmnet(x=as.matrix(getOmicsData()[[dataset]]), y=demo[, input$responseVar], alpha=alpha, lambda=lambda, family = "binomial")
+        Coefficients <- coef(fit, s = lambda)
+        Active.Index <- which(Coefficients[, 1] != 0)
+        data.frame(coef = abs(Coefficients[Active.Index, ])) %>%
+          mutate(features = rownames(.)) %>%
+          dplyr::slice(-1) %>%
+          arrange(coef) %>%
+          mutate(features = factor(as.character(features), as.character(features))) %>%
+          mutate(panel = dataset)
+      })
+      names(singlePanelMods) <- single
+      ### single panel features
+      singlePanel <- lapply(singlePanelMods, function(i){
+        as.character(i$features)
+      })
+
+      barColors <- c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728","#9467bd")
+      names(barColors) <- names(getOmicsData())
+      output$singlePanel <- renderPlotly({
+        options(htmlwidgets.TOJSON_ARGS = NULL)
+        f1 <- list(
+          family = "Arial, sans-serif",
+          size = 8,
+          color = "lightgrey"
+        )
+        f2 <- list(
+          family = "Old Standard TT, serif",
+          size = 8,
+          color = "black"
+        )
+        a <- list(
+          title = "AXIS TITLE",
+          titlefont = f1,
+          showticklabels = TRUE,
+          tickangle = 45,
+          tickfont = f2,
+          exponentformat = "E"
+        )
+        do.call(rbind, singlePanelMods) %>%
+          group_by(panel) %>%
+          do(
+            p = plot_ly(., x = ~features, y = ~coef, marker = list(color = barColors[unique(.$panel)])) %>%
+              layout(xaxis = a, yaxis = a, annotations = list(
+                x = 0.5, y = 1.05, text = ~unique(panel), showarrow = F, xref='paper', yref='paper'
+              ))
+          ) %>%
+          subplot(nrows = nrow(.), margin = 0.05) %>%
+          layout(showlegend=FALSE,
+            margin = list(l = 50, r = 100, b = 150, t = 50, pad = 4))
+      })
+
+      ## Fit ensemble dataset models
+      ensemblePanelMods <- lapply(1 : length(ensem), function(i){
+        dataset <- ensem[i]
+        alpha <- subset(perf, panel == "Ensemble")$alpha
+        lambda <- subset(perf, panel == "Ensemble")$lambda
+        fit <- glmnet(x=as.matrix(getOmicsData()[[dataset]]), y=demo[, input$responseVar], alpha=alpha, lambda=lambda, family = "binomial")
+        Coefficients <- coef(fit, s = lambda)
+        Active.Index <- which(Coefficients[, 1] != 0)
+        data.frame(coef = abs(Coefficients[Active.Index, ])) %>%
+          mutate(features = rownames(.)) %>%
+          dplyr::slice(-1) %>%
+          arrange(coef) %>%
+          mutate(features = factor(as.character(features), as.character(features))) %>%
+          mutate(panel = dataset)
+      })
+      names(ensemblePanelMods) <- ensem
+      ### ensemble panel features
+      ensemblePanel <- lapply(ensemblePanelMods, function(i){
+        as.character(i$features)
+      })
+
+      output$biomarkerPanels <- downloadHandler(
+        filename = function() {
+          paste("BiomarkerPanels_multiomics_HFhospitalizations_", Sys.Date(), ".tsv", sep="")
+        },
+        content = function(file) {
+          write_tsv(rbind(data.frame(dataset = rep(names(singlePanel), sapply(singlePanel, length)),
+            biomarkers = unlist(singlePanel),
+            Panel = "Individual Panels"),
+            data.frame(dataset = rep(names(ensemblePanel), sapply(ensemblePanel, length)),
+              biomarkers = unlist(ensemblePanel),
+              Panel = "Ensemble Panel")), file)
+        }
+      )
+
+      output$ensemblePanel <- renderPlotly({
+        options(htmlwidgets.TOJSON_ARGS = NULL)
+        f1 <- list(
+          family = "Arial, sans-serif",
+          size = 8,
+          color = "lightgrey"
+        )
+        f2 <- list(
+          family = "Old Standard TT, serif",
+          size = 8,
+          color = "black"
+        )
+        a <- list(
+          title = "AXIS TITLE",
+          titlefont = f1,
+          showticklabels = TRUE,
+          tickangle = 45,
+          tickfont = f2,
+          exponentformat = "E"
+        )
+        do.call(rbind, ensemblePanelMods) %>%
+          group_by(panel) %>%
+          do(
+            p = plot_ly(., x = ~features, y = ~coef, marker = list(color = barColors[unique(.$panel)])) %>%
+              layout(xaxis = a, yaxis = a, annotations = list(
+                x = 0.5, y = 1.05, text = ~unique(panel), showarrow = F, xref='paper', yref='paper'
+              ))
+          ) %>%
+          subplot(nrows = nrow(.), margin = 0.05) %>%
+          layout(showlegend=FALSE,
+            margin = list(l = 50, r = 100, b = 150, t = 50, pad = 4))
+      })
+
+      overlap <- lapply(intersect(single, ensem), function(i){
+        intersect(singlePanel[[i]], ensemblePanel[[i]])
+      })
+      names(overlap) <- intersect(single, ensem)
+
+      output$panelN <- renderPlot({
+        panels <-  singlePanel
+        panels$Ensemble <- as.character(unlist(ensemblePanel))
+
+        Input <- UpSetR::fromList(panels)
+        UpSetR::upset(Input, sets = colnames(Input))
+      })
+
+      ## PCA plot
+      observe({
+        updateRadioButtons(session, "pcaBasePanelRadioButtons",
+          label = "Select panel",
+          choices = single,
+          inline = TRUE)
+      })
+      ### Base classifier
+      output$pcaBasePanel <- renderCanvasXpress({
+        dataset <- getOmicsData()[[input$pcaBasePanelRadioButtons]]
+        variables <- singlePanel[[input$pcaBasePanelRadioButtons]]
+        grouping <- data.frame(Group = demo[, input$responseVar])
+        rownames(dataset) <- rownames(grouping) <- paste0("subj", 1:nrow(grouping))
+
+        if(length(variables) > 2){
+          pc <- prcomp(dataset[, variables, drop = FALSE], scale. = TRUE, center = TRUE)
+
+          canvasXpress(data = pc$x[, 1:3], digits = 50,
+            varAnnot  = grouping,
+            colorBy   = "Group",
+            ellipseBy = "Group",
+            graphType = "Scatter3D",
+            colorScheme = "Set2",
+            colors = c(lvl1Color, lvl2Color),
+            xAxisTitle = paste0("PC1 (", round(100*summary(pc)$importance["Proportion of Variance","PC1"], 0), "%)"),
+            yAxisTitle = paste0("PC2 (", round(100*summary(pc)$importance["Proportion of Variance","PC2"], 0), "%)"),
+            zAxisTitle = paste0("PC3 (", round(100*summary(pc)$importance["Proportion of Variance","PC3"], 0), "%)"))
+        } else if(length(variables) == 2){
+          canvasXpress(
+            data=dataset[, variables, drop = FALSE],
+            varAnnot  = grouping,
+            colorBy   = "Group",
+            colorScheme = "Set2",
+            colors = c(lvl1Color, lvl2Color),
+            graphType="ScatterBubble2D",
+            size=list(1)
+          )
+        } else {
+          y=t(as.data.frame(dataset[, variables, drop=FALSE]))
+          x = data.frame(Group = grouping)
+          colnames(y) <- rownames(x) <- paste0("subj", 1:ncol(y))
+
+          canvasXpress(
+            data=y,
+            smpAnnot=x,
+            colorBy   = "Group",
+            axisTitleFontStyle="italic",
+            graphOrientation="vertical",
+            graphType="Boxplot",
+            jitter=TRUE,
+            colorScheme = "Set2",
+            colors = c(lvl1Color, lvl2Color),
+            legendBox=FALSE,
+            plotByVariable=TRUE,
+            showBoxplotOriginalData=TRUE,
+            smpLabelRotate=90,
+            smpTitle="Response",
+            smpTitleFontStyle="italic",
+            title=variables,
+            #height = 300,
+            afterRender=list(list("groupSamples", list("Group")))
+          )
+        }
+      })
+
+      ### Ensemble classifier
+      output$pcaEnsemblePanel <- renderCanvasXpress({
+        dataset <- mapply(function(x, y){
+          x[, y]
+        }, x = getOmicsData()[ensem], y = ensemblePanel) %>%
+          do.call(cbind, .)
+        grouping <- data.frame(Group = demo[, input$responseVar])
+        rownames(dataset) <- rownames(grouping) <- paste0("subj", 1:nrow(grouping))
+
+        pc <- prcomp(dataset, scale. = TRUE, center = TRUE)
+        canvasXpress(data      = pc$x[, 1:3], digits = 50,
+          varAnnot  = grouping,
+          colorBy   = "Group",
+          ellipseBy = "Group",
+          colorScheme = "Set2",
+          colors = c(lvl1Color, lvl2Color),
+          graphType = "Scatter3D",
+          xAxisTitle = paste0("PC1 (", round(100*summary(pc)$importance["Proportion of Variance","PC1"], 0), "%)"),
+          yAxisTitle = paste0("PC2 (", round(100*summary(pc)$importance["Proportion of Variance","PC2"], 0), "%)"),
+          zAxisTitle = paste0("PC3 (", round(100*summary(pc)$importance["Proportion of Variance","PC3"], 0), "%)"))
+      })
+
+      ## Heatmap of selected variables
+      observe({
+        updateRadioButtons(session, "heatmapBasePanelRadioButtons",
+          label = "Select panel",
+          choices = single,
+          inline = TRUE)
+      })
+      ### Base classifier
+      output$heatmapBasePanel <- renderCanvasXpress({
+        dataset <- getOmicsData()[[input$heatmapBasePanelRadioButtons]]
+        variables <- singlePanel[[input$heatmapBasePanelRadioButtons]]
+        y <- t(scale(dataset[, variables, drop=FALSE]))
+        y[y < -2] <- -2
+        y[y > 2] <- 2
+        x = data.frame(Group = demo[, input$responseVar])
+        rownames(x) <- colnames(y) <- paste0("subj", 1:nrow(x))
+        z = data.frame(dataset = rep(input$heatmapBasePanelRadioButtons, length(variables)))
+        rownames(z) <- rownames(y)
+
+        if(length(variables) > 1){
+          canvasXpress(
+            data=y,
+            smpAnnot=x,
+            varAnnot=z,
+            colors = c('blue', 'red'),
+            colorSpectrum=list("magenta", "blue", "black", "red", "gold"),
+            colorSpectrumZeroValue=0,
+            graphType="Heatmap",
+            smpOverlays=list("Group"),
+            heatmapIndicatorHeight=50,
+            heatmapIndicatorHistogram=TRUE,
+            heatmapIndicatorPosition="topLeft",
+            heatmapIndicatorWidth=60,
+            samplesClustered=TRUE,
+            showTransition=TRUE,
+            variablesClustered=TRUE)
+        } else {
+          y=t(as.data.frame(dataset[, variables, drop=FALSE]))
+          x = data.frame(Group = demo[, input$responseVar])
+          colnames(y) <- rownames(x) <- paste0("subj", 1:ncol(y))
+
+          canvasXpress(
+            data=y,
+            smpAnnot=x,
+            colorBy   = "Group",
+            axisTitleFontStyle="italic",
+            graphOrientation="vertical",
+            graphType="Boxplot",
+            jitter=TRUE,
+            colorScheme = "Set2",
+            colors = c('blue', 'red'),
+            legendBox=FALSE,
+            plotByVariable=TRUE,
+            showBoxplotOriginalData=TRUE,
+            smpLabelRotate=90,
+            smpTitle="Response",
+            smpTitleFontStyle="italic",
+            title=variables,
+            #height = 300,
+            afterRender=list(list("groupSamples", list("Group"))))
+        }
+      })
+
+      ### Ensemble classifier
+      output$heatmapEnsemblePanel <- renderCanvasXpress({
+        y = mapply(function(x, y){
+          x[, y, drop=FALSE]
+        }, x = getOmicsData()[names(ensemblePanel)], y = ensemblePanel, SIMPLIFY = FALSE) %>%
+          do.call(cbind, .) %>%
+          scale(.) %>%
+          t
+        y[y < -2] <- -2
+        y[y > 2] <- 2
+        x = data.frame(Group = demo[, input$responseVar])
+        rownames(x) <- colnames(y) <- paste0("subj", 1:nrow(x))
+        z = data.frame(dataset = rep(names(ensemblePanel), sapply(ensemblePanel, length)))
+        rownames(z) <- rownames(y)
+
+        canvasXpress(
+          data=y,
+          smpAnnot=x,
+          varAnnot=z,
+          colors = c(lvl1Color, lvl2Color),
+          colorKey=list(dataset=barColors[names(ensemblePanel)], Group=c(lvl1Color, lvl2Color)),
+          colorSpectrum=list("magenta", "blue", "black", "red", "gold"),
+          colorSpectrumZeroValue=0,
+          graphType="Heatmap",
+          smpOverlays=list("Group"),
+          varOverlayProperties=list(dataset=list(position="top")),
+          varOverlays=list("dataset"),
+          heatmapIndicatorHeight=50,
+          heatmapIndicatorHistogram=TRUE,
+          heatmapIndicatorPosition="topLeft",
+          heatmapIndicatorWidth=60,
+          samplesClustered=TRUE,
+          showTransition=TRUE,
+          variablesClustered=TRUE)
+      })
+
+      # Enrichment analysis
+      dat <- mapply(function(x, y){
+        x[, y, drop=FALSE]
+      }, x = getOmicsData()[names(ensemblePanel)], y = ensemblePanel, SIMPLIFY = FALSE) %>%
+        do.call(cbind, .)
+      colnames(dat) <- sapply(strsplit(colnames(dat), "\\."), function(i) paste(i[-1], collapse = "_"))
+      pairs <- split(t(combn(colnames(dat), 2)), 1:nrow(t(combn(colnames(dat), 2))))
+
+      output$biomarkerSig <- renderVisNetwork({
+        withProgress(message = 'Constructing network.',
+          detail = 'This may take a while...', value = 0, {
+
+            edgesCor <- lapply(pairs, function(i){
+              data = as.data.frame(dat[, i])
+              c(colnames(data), cor(data[,1], data[,2]))
+            }) %>%
+              do.call(rbind, .) %>%
+              as.data.frame() %>%
+              dplyr::rename(from = V1, to = V2, cor = V3) %>%
+              mutate(cor = as.numeric(as.character(cor))) %>%
+              filter(abs(cor) > input$corCutoff) %>%
+              mutate(color = ifelse(cor > 0, "salmon", "blue"))
+            print(summary(edgesCor$cor))
+
+            ## gene set enrichment analysis
+            # dbs <- listEnrichrDbs()
+            dbs <- c("Jensen_DISEASES", "BioCarta_2016", "Reactome_2016", "KEGG_2016", "WikiPathways_2016")
+            enriched <- enrichr(unlist(ensemblePanel), dbs)
+
+            edgesGset <- do.call(rbind, enriched) %>%
+              mutate(database = rep(names(enriched), sapply(enriched, nrow)))
+            if(sum(edgesGset$Adjusted.P.value < input$bioFDR) < 1){
+              edges <- edgesCor
+            } else {
+              sig_pathways <- do.call(rbind, enriched) %>%
+                mutate(database = rep(names(enriched), sapply(enriched, nrow))) %>%
+                filter(Adjusted.P.value < input$bioFDR) %>%
+                dplyr::select(Term, Genes)
+              edgesGset <- data.frame(from = rep(sig_pathways$Term, sapply(strsplit(sig_pathways$Genes, ";"), length)),
+                to = unlist(strsplit(sig_pathways$Genes, ";")) ) %>%
+                mutate(cor = 1, color = "black")
+              edges <- rbind(edgesCor, edgesGset)
+            }
+
+            # nodes
+            nodes <- data.frame(id = unique(c(as.character(edges$from), unlist(ensemblePanel))))
+            group <- lapply(as.character(nodes$id), function(i){
+              mtch <- paste(na.omit(sapply(names(ensemblePanel), function(j){
+                if(i %in% ensemblePanel[[j]]){
+                  j
+                } else {
+                  return(NA)
+                }
+              })), collapse="_")
+            }) %>% unlist()
+            group[group == ""] <- "pathway"
+
+            nodes$group <- group
+            nodes$label <- nodes$id
+            # nodes$shape <- "pathway.png"
+
+            shapes <- c("square", "triangle", "circle", "dot", "star",
+              "ellipse", "database", "text", "diamond")
+            if(length(unique(group)) < length(shapes)){
+              nodeShapes <- c(shapes[1:length(unique(group))], "box")
+              names(nodeShapes) <- c(names(setdiff(unique(group), "pathway")), "pathway")
+            } else {
+              nodeShapes <- rep('circle', length(unique(group)))
+              names(nodeShapes) <- unique(group)
+            }
+
+            if(length(unique(group)) < length(shapes)){
+              nodeColors <- RColorBrewer::brewer.pal(12, "Set3")[1:length(unique(group))]
+              names(nodeColors) <- unique(group)
+            } else {
+              nodeColors <- colors()[1:length(unique(group))]  # 657 possibilites
+              names(nodeColors) <- unique(group)
+            }
+            nodes$shape <- nodeShapes[group]
+            nodes$color <- nodeColors[group]
+
+            nodeLegend <- lapply(unique(group), function(i){
+              list(label = i, shape = as.character(nodeShapes[i]), color = as.character(nodeColors[i]))
+            })
+
+            ledges <- data.frame(color = c("salmon", "blue", "black"),
+              label = c("positive correlation", "negative correlation", "curated link"),
+              font.align = "top")
+
+            visNetwork(nodes, edges) %>%
+              visNodes(shapeProperties = list(useBorderWithImage = TRUE)) %>%
+              visLayout(randomSeed = 2) %>%
+              visLegend(width = 1, position = "left", main = "Group") %>%
+              visLegend(addNodes = nodeLegend,
+                addEdges = ledges,
+                useGroups = FALSE) %>%
+              visEvents(click = "function(nodes){
+        Shiny.onInputChange('click', nodes.nodes[0]);
+        ;}"
+              )
+
+          })
+      })
+
+      # observe({
+      #   if(length(input$click) == 1){
+      #     visNetworkProxy("biomarkerSig") %>%
+      #       visGetConnectedNodes(id = input$click, input = "connected_nodes") %>% visGetSelectedNodes()
+      #   }
+      # })
+      #
+      # ## plot barplot shows the correlation between biomarkers with respect to responder group
+      # output$selectedFeatures <- renderPlotly({
+      #   from = input$biomarkerSig_selectedNodes
+      #   tos = input$connected_nodes
+      #   if(length(intersect(from, colnames(dat))) > 0 & length(intersect(tos, colnames(dat))) > 0){
+      #     corDat <- cbind(dat[, intersect(colnames(dat), from), drop=FALSE] %>%
+      #         as.data.frame %>%
+      #         mutate(hosp_3months=hosp_3months) %>%
+      #         gather(from, from_exp, -hosp_3months),
+      #       dat[, intersect(colnames(dat), tos), drop=FALSE] %>%
+      #         as.data.frame %>%
+      #         gather(to, to_exp)) %>%
+      #       as.data.frame %>%
+      #       group_by(hosp_3months, from, to) %>%
+      #       dplyr::summarise(cor = cor(from_exp, to_exp)) %>%
+      #       spread(hosp_3months, cor) %>%
+      #       arrange(Yes) %>%
+      #       mutate(to = factor(as.character(to), unique(as.character(to))))
+      #     options(htmlwidgets.TOJSON_ARGS = NULL)
+      #     plot_ly(corDat, y = ~to, x = ~Yes, type = 'bar', name = 'Yes', marker=list(color=yesColor)) %>%
+      #       add_trace(x = ~No, name = 'No', orientation = 'h', marker=list(color=noColor)) %>%
+      #       layout(showlegend=TRUE,
+      #         margin = list(l = 100, r = 15, b = 100, t = 50, pad = 4)) %>%
+      #       layout(legend = list(orientation = 'h', xanchor="center", x=0.5, y=1.1),
+      #         xaxis = list(title = paste0("correlation with \n ", unique(corDat$from)), size = 5),
+      #         yaxis = list(title =""))
+      #   } else {
+      #     return(NULL)
+      #   }
+      # })
+      #
+      # ## scatter plots for the interaction analysis
+      # output$interaction <- renderPlot({
+      #   from = input$biomarkerSig_selectedNodes
+      #   tos = input$connected_nodes
+      #   if(length(intersect(from, colnames(dat))) > 0 & length(intersect(tos, colnames(dat))) > 0){
+      #     cbind(dat[, intersect(colnames(dat), from), drop=FALSE] %>%
+      #         as.data.frame %>%
+      #         mutate(hosp_3months=hosp_3months) %>%
+      #         gather(from, from_exp, -hosp_3months),
+      #       dat[, intersect(colnames(dat), tos), drop=FALSE] %>%
+      #         as.data.frame %>%
+      #         gather(to, to_exp)) %>%
+      #         as.data.frame %>%
+      #         ggplot(aes(x = to_exp, y = from_exp, fill = hosp_3months, color = hosp_3months)) +
+      #         geom_point() +
+      #         scale_color_manual(values=c(noColor, yesColor)) +
+      #         scale_fill_manual(values=c(noColor, yesColor)) +
+      #         facet_wrap(.~to, scales = "free") +
+      #         theme(legend.title=element_blank()) +
+      #         stat_smooth(method='lm')+ xlab('Biomarker levels') + ylab(from)
+      #       # + theme(legend.position="none")) %>%
+      #       # layout(showlegend=FALSE,
+      #       #   margin = list(l = 100, r = 10, b = 50, t = 50, pad = 0)
+      #
+      #   } else{
+      #     return(NULL)
+      #   }
+      # })
+
+    })
+
+
+
     # show analysis sidemenu when run analysis button is pressed
     output$analysisRan <- reactive({
       returnedValue = TRUE
       return(returnedValue)
     })
     outputOptions(output, "analysisRan", suspendWhenHidden = FALSE)
-
-
-    observe({
-      print(input$dataGenSym)
-    })
-
-    ################################################################################
-    #
-    # Biomarker Discovery Analysis
-    #
-    ################################################################################
-
-
-
-
   })
 
 

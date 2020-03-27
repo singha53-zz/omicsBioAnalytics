@@ -139,6 +139,9 @@ body <- dashboardBody(
         tabItem("subitem3",
           omicsBioAnalytics::dea()
         ),
+        tabItem("subitem4",
+          omicsBioAnalytics::biomarkerDiscoveryUI()
+        ),
         tabItem(
           tabName = "methods",
           "methods"
