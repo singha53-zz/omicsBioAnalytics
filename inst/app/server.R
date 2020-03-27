@@ -750,7 +750,7 @@ function(input, output, session) {
             tidyr::unnest(roc) %>%
             group_by(panel, alpha, lambda, fpr) %>%
             dplyr::summarise(mean_tpr = mean(tpr), sd_fpr=sd(tpr)) %>%
-            inner_join(x = perf, y = ., by = c("panel", "alpha", "lambda"))
+            dplyr::inner_join(x = perf, y = ., by = c("panel", "alpha", "lambda"))
         })
 
 
@@ -772,7 +772,7 @@ function(input, output, session) {
           selection = list(target = "row+column"),
           options = list(pageLength = nrow(perf), dom = "ft", digits=4))
       }, width = "50%")
-      proxy = dataTableProxy('aucs')
+      proxy = DT::dataTableProxy('aucs')
       # highlight rows that are selected on plotly output
       observe({
 
@@ -784,7 +784,7 @@ function(input, output, session) {
           rowNums <- row.names(as.data.frame(perf)[perf$panel %in% as.character(event.data$key[[1]]),])
         }
 
-        proxy %>% selectRows(as.numeric(rowNums))
+        proxy %>% DT::selectRows(as.numeric(rowNums))
       })
 
       ## Fit single dataset models
@@ -920,7 +920,7 @@ function(input, output, session) {
         panels <-  singlePanel
         panels$Ensemble <- as.character(unlist(ensemblePanel))
 
-        Input <- fromList(panels)
+        Input <- UpSetR::fromList(panels)
         upset(Input, sets = colnames(Input))
       })
 
