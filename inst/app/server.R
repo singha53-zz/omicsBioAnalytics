@@ -684,7 +684,7 @@ function(input, output, session) {
             group_by(obs, rowIndex, alpha, lambda, Resample) %>%
             dplyr::summarise(Yes = mean(Yes)) %>%
             mutate(panel = "Ensemble") %>%
-            full_join(pred, .)
+            dplyr::full_join(pred, .)
 
           ## Compute classification performance
           perf <- pred %>%
@@ -712,26 +712,26 @@ function(input, output, session) {
             dplyr::summarise(prob = mean(Yes)) %>%
             ungroup %>%
             dplyr::select(obs, rowIndex, panel, prob) %>%
-            spread(panel, prob) %>%
-            nest() %>%
+            tidyr::spread(panel, prob) %>%
+            tidyr::nest() %>%
             mutate(delongPvalue = purrr::map(data, ~{
               pvals <- apply(comparePanels, 2, function(i){
                 one <- i[1]; two <- i[2];
-                roc1 <- roc(.$obs, as.data.frame(.)[, one], direction = "<")
-                roc2 <- roc(.$obs, as.data.frame(.)[, two], direction = "<")
-                roc.test(roc1, roc2)$p.value
+                roc1 <- pROC::roc(.$obs, as.data.frame(.)[, one], direction = "<")
+                roc2 <- pROC::roc(.$obs, as.data.frame(.)[, two], direction = "<")
+                pROC::roc.test(roc1, roc2)$p.value
               })
               data.frame(panel1 = comparePanels[1,],
                 panel2=comparePanels[2,],
                 pvalue=pvals)
             })) %>%
-            unnest(delongPvalue)
+            tidyr::unnest(delongPvalue)
           delong$panel1 <- as.character(delong$panel1)
           delong$panel2 <- as.character(delong$panel2)
           mat <- data.frame(panel1 = c(delong$panel1, delong$panel2),
             panel2 = c(delong$panel2, delong$panel1),
             pvalue = rep(delong$pvalue, 2)) %>%
-            spread(panel2, pvalue)
+            tidyr::spread(panel2, pvalue)
           rownames(mat) <- mat$panel1
           mat <- as.matrix(mat[,-1])
           diag(mat) <- 1
@@ -742,12 +742,12 @@ function(input, output, session) {
           ## Compuate roc curves
           rocTable <- pred %>%
             group_by(panel, alpha, lambda, Resample) %>%
-            nest() %>%
+            tidyr::nest() %>%
             mutate(roc = purrr::map(data, ~{
               data.frame(tpr = pROC::roc(.$obs,.$Yes, direction = "<")$sensitivities,
                 fpr = (1-pROC::roc(.$obs,.$Yes, direction = "<")$specificities))
             })) %>%
-            unnest(roc) %>%
+            tidyr::unnest(roc) %>%
             group_by(panel, alpha, lambda, fpr) %>%
             dplyr::summarise(mean_tpr = mean(tpr), sd_fpr=sd(tpr)) %>%
             inner_join(x = perf, y = ., by = c("panel", "alpha", "lambda"))
