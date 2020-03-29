@@ -38,8 +38,6 @@ function(input, output, session) {
     selectInput('responseVar', 'Select response variable', colnames(getDemoData()[, keepCols]))
   })
 
-  response <- reactive({factor(getDemoData()[, input$responseVar])})
-
   # omics data upload
   getOmicsData <- reactive({
     req(input$omicsData)
@@ -73,16 +71,20 @@ function(input, output, session) {
     ################################################################################
     ## split demo data into cat and cont vars
     demo <- getDemoData()
+    response <- factor(as.character(demo[, input$responseVar]))
     demoSplit <- omicsBioAnalytics::splitData(demo, group = input$responseVar, trim = 0.8)
+    print(colnames(demoSplit$data.cont)[1])
     ## @@@@@@@@@@@@@@@@@@@@@@@ Continuous variable panel @@@@@@@@@@@@@@@@@@@@@@@ ##
     updateRadioButtons(session, "vars",
       label = "Demographic variable:",
       choices = colnames(demoSplit$data.cont),
       selected = colnames(demoSplit$data.cont)[1], inline = TRUE
     )
+
     observe({
+      req(input$vars != "")
       DF <- reactive({
-        df <- data.frame(x = response(),
+        df <- data.frame(x = response,
           y = if (input$transform == "no") {
             demo[, input$vars]
           } else {
@@ -117,11 +119,18 @@ function(input, output, session) {
       })
       output$plot <- renderPlotly({
         options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
-        plot_ly(data = DF(), y = ~y, color = ~x, type = "box") %>%
-            layout(showlegend = FALSE) %>%
-            layout(xaxis = xaxis,
-              yaxis = yaxis(),
-              title = title())
+        # plot_ly(data = DF(), y = ~y, x = ~x, type = "box",
+        #   color = groupColors[as.numeric(response())]) %>%
+        #     layout(showlegend = FALSE) %>%
+        #     layout(xaxis = xaxis,
+        #       yaxis = yaxis(),
+        #       title = title())
+        ggplotly(DF() %>%
+        ggplot(aes(x = x, y = y, fill = x)) +
+          geom_boxplot() +
+          theme_classic()+
+            scale_fill_manual(values=groupColors[1:nlevels(response)])
+          )
       })
 
       output$testTitle <- renderText({
