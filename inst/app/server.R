@@ -101,29 +101,27 @@ function(input, output, session) {
         }
       })
 
-      f <- list(family = "Courier New, monospace",
-        size = 15,
-        color = "#7f7f7f")
-      xaxis <- list(title = input$responseVar,
-        titlefont = f)
       yaxis <- reactive({
-        list(title = if (input$transform == "no") {
+        if(input$transform == "no") {
           input$vars
         } else {
           paste(input$vars, "(log2)")
-        },
-          titlefont = f)
+        }
       })
       title <- reactive({
-        title = paste(input$vars, " vs. ", input$responseVar)
+        paste(input$vars, " vs. ", input$responseVar)
       })
       output$plot <- renderPlotly({
         options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
         ggplotly(DF() %>%
         ggplot(aes(x = x, y = y, fill = x)) +
           geom_boxplot() +
-          theme_classic()+
-            scale_fill_manual(values=groupColors[1:nlevels(response)])
+          xlab(input$responseVar) +
+          ylab(yaxis()) +
+          ggtitle(title()) +
+          theme_classic() +
+          theme(legend.position = "none") +
+          scale_fill_manual(values=groupColors[1:nlevels(response)])
           )
       })
 
