@@ -119,12 +119,6 @@ function(input, output, session) {
       })
       output$plot <- renderPlotly({
         options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
-        # plot_ly(data = DF(), y = ~y, x = ~x, type = "box",
-        #   color = groupColors[as.numeric(response())]) %>%
-        #     layout(showlegend = FALSE) %>%
-        #     layout(xaxis = xaxis,
-        #       yaxis = yaxis(),
-        #       title = title())
         ggplotly(DF() %>%
         ggplot(aes(x = x, y = y, fill = x)) +
           geom_boxplot() +
@@ -241,21 +235,21 @@ function(input, output, session) {
     )
     observe({
       output$obsCounts <- renderGvis({
-        d <- as.data.frame(as.data.frame.matrix(addmargins(table(response(), demo[, input$catVar]))))
+        d <- as.data.frame(as.data.frame.matrix(addmargins(table(response, demo[, input$catVar]))))
         gvisTable(cbind(' '=rownames(d), d))
       })
       output$obsFreq <- renderGvis({
-        d <- as.data.frame(as.data.frame.matrix(apply(table(response(), demo[, input$catVar]), 1, function(i){
+        d <- as.data.frame(as.data.frame.matrix(apply(table(response, demo[, input$catVar]), 1, function(i){
           round(100*i/sum(i), 0)
         }) %>% t))
         gvisTable(cbind(' '=rownames(d), d))
       })
       output$chisqTest <- renderPrint({
         x <- input$catVar
-        chisq.test(demo[, x], response())
+        chisq.test(demo[, x], response)
       })
       output$chisqConclusion <- renderText({
-        pval <- chisq.test(demo[, input$catVar], response())$p.value
+        pval <- chisq.test(demo[, input$catVar], response)$p.value
         ifelse(pval < 0.05,
           paste0("There is a statistically significant association (at p<0.05) between ",
             input$catVar, " and ", input$responseVar, " (p-value = ", signif(pval, 3), ")."),
@@ -318,7 +312,7 @@ function(input, output, session) {
             )
           output[[paste("varExp", i, sep="_")]] <- renderPrint({summary(pcs)})
           output[[paste("pcaPlot", i, sep="_")]] <- renderPlot({
-            omicsBioAnalytics::pcaPairs(pcs = pcs, y = response(), col=groupColors[1:nlevels(response())])
+            omicsBioAnalytics::pcaPairs(pcs = pcs, y = response, col=groupColors[1:nlevels(response)])
           })
           output[[paste("pcClinVarPlot", i, sep="_")]] <- renderPlotly({
             ggplotly(pcaHeatmap(pcs = pcs$x, demo = demo)) %>%
