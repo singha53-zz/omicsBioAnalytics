@@ -23,9 +23,6 @@ function(input, output, session) {
   # Demographics data upload
   getDemoData <- reactive({
     req(input$demo)
-    # demoData <- read.csv(input$demo$datapath,
-    #   header = input$header,
-    #   sep = input$sep)
     demoData <- read.csv(input$demo$datapath, header = TRUE, sep = input$sep)
     demoData
   })
@@ -33,7 +30,8 @@ function(input, output, session) {
   # show column names of demo dataset
   output$responseVar <- renderUI({
     keepCols <- apply(getDemoData(), 2, function(i){
-      ifelse(nlevels(factor(as.character(i))) == 2, TRUE, FALSE)
+      keepvar <- as.character(i)
+      ifelse(min(table(as.character(i))) > 1, TRUE, FALSE)
     })
     selectInput('responseVar', 'Select response variable', colnames(getDemoData()[, keepCols]))
   })
