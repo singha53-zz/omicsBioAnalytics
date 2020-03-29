@@ -213,11 +213,11 @@ function(input, output, session) {
 
       output$conclusion <- renderText({
         if(input$test == "lr"){
-          ifelse(coef(summary(fit()))[2, "Pr(>|t|)"] < 0.05,
-            paste0("There is a statistically significant difference (at p<0.05) in mean ",
-              input$var, " between the groups."),
-            paste0("There is no statistically significant difference (at p<0.05) in mean ",
-              input$var, " between the groups."))
+          ifelse(summary(aov(fit()))[[1]][1, "Pr(>F)"] < 0.05,
+            paste0("There is a statistically significant difference (at p<0.05) ",
+              input$var, " between the groups based an Analysis of Variance (see pairwise comparisons above)."),
+            paste0("There is no statistically significant difference (at p<0.05) ",
+              input$var, " between the groups based an Analysis of Variance (see pairwise comparisons above)."))
         } else {
           ifelse(fit()$p.value < 0.05,
             paste0("There is a statistically significant difference (at p<0.05) in ",
