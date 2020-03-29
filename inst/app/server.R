@@ -78,7 +78,7 @@ function(input, output, session) {
     )
     observe({
       DF <- reactive({
-        df <- data.frame(x = demo[, input$responseVar],
+        df <- data.frame(x = factor(demo[, input$responseVar]),
           y = if (input$transform == "no") {
             demo[, input$vars]
           } else {
@@ -88,10 +88,10 @@ function(input, output, session) {
       })
 
       fit <- reactive({
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           lm(y~x, data = DF())
         } else {
-          wilcox.test(y~x, data = DF())
+          kruskal.test(y~x, data = DF())
         }
       })
 
@@ -121,15 +121,15 @@ function(input, output, session) {
       })
 
       output$testTitle <- renderText({
-        if(input$test == "ttest"){
-          "Student's t-Test"
+        if(input$test == "lr"){
+          "Linear Regression"
         } else {
-          "Wilcoxon Rank Sum test"
+          "Kruskal-Wallis Test"
         }
       })
 
       assumptions <- reactive({
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           gvlma::gvlma(fit())$GlobalTest[2:6] %>%
             do.call(rbind, .) %>%
             as.data.frame %>%
@@ -157,11 +157,11 @@ function(input, output, session) {
       output$tbl = DT::renderDataTable( assumptions(), options = list(lengthChange = FALSE))
 
       output$lmAssumptions <- renderText({
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           if(assumptions()$Decision[1] == "Assumptions acceptable."){
-            "Assumptions acceptable. Student's t-Test is recommended."
+            "Assumptions acceptable. Linear regression is recommended."
           } else {
-            "Try a log2-transformation. If that doesn't work, the Wilcoxon Rank Sum test is recommended."
+            "Try a log2-transformation. If that doesn't work, the Kruskal-Wallis Test is recommended."
           }
         } else {
           return(NULL)
@@ -169,7 +169,7 @@ function(input, output, session) {
       })
 
       output$test <- renderPrint({
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           coef(summary(fit()))
         } else {
           fit()
@@ -187,7 +187,7 @@ function(input, output, session) {
             SD  = sd(y, na.rm = TRUE)) %>%
           dplyr::rename(Group = x)
 
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           parametricDescStat <- signif(rbind(summaryStat$Mean, summaryStat$SD), 3)
           rownames(parametricDescStat) <- c("Mean", "SD")
           colnames(parametricDescStat) <- summaryStat$Group
@@ -205,7 +205,7 @@ function(input, output, session) {
       })
 
       output$conclusion <- renderText({
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           ifelse(coef(summary(fit()))[2, "Pr(>|t|)"] < 0.05,
             paste0("There is a statistically significant difference (at p<0.05) in mean ",
               input$var, " between the groups."),
