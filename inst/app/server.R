@@ -2,6 +2,8 @@
 lvl1Color <- "#66C2A5"
 lvl2Color <- "#FC8D62"
 
+groupColors <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
 dynamodbTableName <- Sys.getenv("TABLE_NAME")
 S3Bucket <- Sys.getenv("S3BUCKET")
 previousWorkloads <- sapply(get_bucket(bucket = S3Bucket), function(i){
@@ -31,10 +33,12 @@ function(input, output, session) {
   output$responseVar <- renderUI({
     keepCols <- apply(getDemoData(), 2, function(i){
       keepvar <- as.character(i)
-      ifelse(min(table(as.character(i))) > 1, TRUE, FALSE)
+      ifelse(length(table(as.character(i))) < 9 & min(table(as.character(i))) > 1, TRUE, FALSE)
     })
     selectInput('responseVar', 'Select response variable', colnames(getDemoData()[, keepCols]))
   })
+
+  response <- reactive({factor(getDemoData()[, input$responseVar])})
 
   # omics data upload
   getOmicsData <- reactive({
@@ -78,7 +82,7 @@ function(input, output, session) {
     )
     observe({
       DF <- reactive({
-        df <- data.frame(x = factor(demo[, input$responseVar]),
+        df <- data.frame(x = response(),
           y = if (input$transform == "no") {
             demo[, input$vars]
           } else {
@@ -228,21 +232,21 @@ function(input, output, session) {
     )
     observe({
       output$obsCounts <- renderGvis({
-        d <- as.data.frame(as.data.frame.matrix(addmargins(table(demo[, input$responseVar], demo[, input$catVar]))))
+        d <- as.data.frame(as.data.frame.matrix(addmargins(table(response(), demo[, input$catVar]))))
         gvisTable(cbind(' '=rownames(d), d))
       })
       output$obsFreq <- renderGvis({
-        d <- as.data.frame(as.data.frame.matrix(apply(table(demo[, input$responseVar], demo[, input$catVar]), 1, function(i){
+        d <- as.data.frame(as.data.frame.matrix(apply(table(response(), demo[, input$catVar]), 1, function(i){
           round(100*i/sum(i), 0)
         }) %>% t))
         gvisTable(cbind(' '=rownames(d), d))
       })
       output$chisqTest <- renderPrint({
         x <- input$catVar
-        chisq.test(demo[, x], demo[, input$responseVar])
+        chisq.test(demo[, x], response())
       })
       output$chisqConclusion <- renderText({
-        pval <- chisq.test(demo[, input$catVar], demo[, input$responseVar])$p.value
+        pval <- chisq.test(demo[, input$catVar], response())$p.value
         ifelse(pval < 0.05,
           paste0("There is a statistically significant association (at p<0.05) between ",
             input$catVar, " and ", input$responseVar, " (p-value = ", signif(pval, 3), ")."),
@@ -305,7 +309,7 @@ function(input, output, session) {
             )
           output[[paste("varExp", i, sep="_")]] <- renderPrint({summary(pcs)})
           output[[paste("pcaPlot", i, sep="_")]] <- renderPlot({
-            omicsBioAnalytics::pcaPairs(pcs = pcs, y = demo[, input$responseVar], col=c(lvl1Color, lvl2Color))
+            omicsBioAnalytics::pcaPairs(pcs = pcs, y = response(), col=groupColors[1:nlevels(response())])
           })
           output[[paste("pcClinVarPlot", i, sep="_")]] <- renderPlotly({
             ggplotly(pcaHeatmap(pcs = pcs$x, demo = demo)) %>%
