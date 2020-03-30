@@ -52,8 +52,8 @@ function(input, output, session) {
 
   # determine which datasets to perform gene set enrichment analysis on?
   output$performPathwayAnalysis <- reactive({
-    datasetNames <- sapply(names(getOmicsData()), function(i){
-      length(intersect(colnames(getOmicsData()[[i]]), unlist(kegg))) > 5
+    datasetNames <- sapply(names(subset_eset), function(i){
+      length(intersect(colnames(subset_eset[[i]]), unlist(kegg))) > 5
     })
     names(datasetNames)[datasetNames]
   })
@@ -409,12 +409,12 @@ function(input, output, session) {
             req(input[[paste("fdr", i, sep="_")]])
             req(input[[paste("comparison", i, sep="_")]])
             req(input[[paste("deTest", i, sep="_")]])
-            subset_eset <- getOmicsData()[[i]]
+            eset <- getOmicsData()[[i]]
             selectedCoef <- which(levels(response) == sapply(strsplit(input[[paste("comparison", i, sep="_")]], " vs. "), function(i){ i[[2]]}))
             req(length(selectedCoef) == 1)
 
             design <- model.matrix(~response)
-            top <- generateTopTable(subset_eset, design, coefNumber = selectedCoef, test = input[[paste("deTest", i, sep="_")]])
+            top <- generateTopTable(eset, design, coefNumber = selectedCoef, test = input[[paste("deTest", i, sep="_")]])
 
             subsetTop <- reactive({
               top = top %>%
@@ -451,7 +451,7 @@ function(input, output, session) {
               if (length(s)) {
                 var <- unlist(s[["key"]])
                 options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
-                ggplotly(data.frame(x = response, y = subset_eset[, var]) %>%
+                ggplotly(data.frame(x = response, y = eset[, var]) %>%
                     ggplot(aes(x = x, y = y, fill = x)) +
                     geom_boxplot() +
                     xlab(input$responseVar) +
@@ -488,21 +488,21 @@ function(input, output, session) {
                 dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
 
             ## Differential pathway analysis
-            if(length(intersect(colnames(subset_eset), unlist(kegg)) > 5) &
-                length(intersect(colnames(subset_eset), unlist(wikipathways)) > 5)){
+            if(length(intersect(colnames(eset), unlist(kegg)) > 5) &
+                length(intersect(colnames(eset), unlist(wikipathways)) > 5)){
               ## KEGG pathways
               indKegg <- lapply(kegg, function(pathway){
-                which(colnames(subset_eset) %in% pathway)
+                which(colnames(eset) %in% pathway)
               })
               indKegg <- indKegg[sapply(indKegg, length) > 5]
-              gsetKegg <- camera(t(subset_eset), indKegg, design, contrast = 2)
+              gsetKegg <- camera(t(eset), indKegg, design, contrast = 2)
               gsetKegg$adj.P.Val <- p.adjust(gsetKegg$PValue, "BH")
               ## Wikipathways
               indWiki <- lapply(wikipathways, function(pathway){
-                which(colnames(subset_eset) %in% pathway)
+                which(colnames(eset) %in% pathway)
               })
               indWiki <- indWiki[sapply(indWiki, length) > 5]
-              gsetWiki <- camera(t(subset_eset), indWiki, design, contrast = 2)
+              gsetWiki <- camera(t(eset), indWiki, design, contrast = 2)
               gsetWiki$adj.P.Val <- p.adjust(gsetWiki$PValue, "BH")
             } else {
               gsetKegg <- gsetWiki <- NULL
@@ -560,7 +560,7 @@ function(input, output, session) {
               if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
                 gset <- rbind(gsetKegg, gsetWiki)
                 pathway.genes <- lapply(append(indKegg, indWiki), function(ind){
-                  colnames(subset_eset)[ind]
+                  colnames(eset)[ind]
                 })
                 ## up-regulated
                 up.pathways <- gset[gset$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gset$Direction == "Up", , drop=FALSE]
@@ -586,7 +586,7 @@ function(input, output, session) {
               if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
                 gset <- rbind(gsetKegg, gsetWiki)
                 pathway.genes <- lapply(append(indKegg, indWiki), function(ind){
-                  colnames(subset_eset)[ind]
+                  colnames(eset)[ind]
                 })
                 ## down-regulated
                 down.pathways <- gset[gset$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gset$Direction == "Down", , drop=FALSE]
@@ -633,7 +633,7 @@ function(input, output, session) {
     updateCheckboxGroupInput(session, "selectedGroups",
       label = "Select two groups to compare (required):",
       choices = levels(response),
-      selected = levels(response)[1],
+      selected = levels(response)[1:2],
       inline = TRUE
     )
 
@@ -650,9 +650,26 @@ function(input, output, session) {
       req(length(input$selectedGroups) > 1)
       req(length(input$checkGroup_single) > 0)
       req(length(input$checkGroup_ensemble) > 0)
+      req(length(response) > 0 )
+      req(sum(input$selectedGroups %in% response)>0)
+      print("response")
+      print(response)
       print(input$selectedGroups)
+      print(response[response %in% input$selectedGroups])
 
+      ## reduce data to two groups
+      if(nlevels(response) > 2){
+        subset_response <- isolate({droplevels(response[response %in% input$selectedGroups])})
+        subset_eset <- isolate({lapply(getOmicsData(), function(i){
+          i[response %in% input$selectedGroups, ]
+        })})
+      } else {
+        subset_response <- isolate({response})
+        subset_eset <- isolate({getOmicsData()})
+      }
 
+      # if response is coded with numbers only, change it to a valid R variable
+      subset_response <- factor(make.names(subset_response))
       isolate(alphaMin <- input$alpha[1])
       isolate(alphaMax <- input$alpha[2])
       isolate(alphalength <- input$alphaGrid)
@@ -671,7 +688,7 @@ function(input, output, session) {
           classProbs = TRUE,
           savePredictions = TRUE)
         set.seed(123)
-        ctrl$index <- caret::createMultiFolds(demo[, input$responseVar], 5, n_repeats)
+        ctrl$index <- caret::createMultiFolds(subset_response, 5, n_repeats)
       } else {
         ctrl <- caret::trainControl(method = "repeatedcv",
           number = 10,
@@ -680,7 +697,7 @@ function(input, output, session) {
           classProbs = TRUE,
           savePredictions = TRUE)
         set.seed(456)
-        ctrl$index <- caret::createMultiFolds(demo[, input$responseVar], 10, n_repeats)
+        ctrl$index <- caret::createMultiFolds(subset_response, 10, n_repeats)
       }
 
       enetGrid = expand.grid(alpha = seq(alphaMin, alphaMax, length.out = alphalength),
@@ -695,7 +712,7 @@ function(input, output, session) {
             # Increment the progress bar, and update the detail text.
             incProgress(1/length(datasets), detail = paste("Building ", dat, " model..."))
 
-            mods[[dat]] <- caret::train(x=getOmicsData()[[dat]], y=demo[, input$responseVar],
+            mods[[dat]] <- caret::train(x=subset_eset[[dat]], y=subset_response,
               preProc=c("center", "scale"),
               method = "glmnet",
               metric = "ROC",
@@ -791,7 +808,7 @@ function(input, output, session) {
         dataset <- single[i]
         alpha <- subset(perf, panel == dataset)$alpha
         lambda <- subset(perf, panel == dataset)$lambda
-        fit <- glmnet(x=as.matrix(getOmicsData()[[dataset]]), y=demo[, input$responseVar], alpha=alpha, lambda=lambda, family = "binomial")
+        fit <- glmnet(x=as.matrix(subset_eset[[dataset]]), y=subset_response, alpha=alpha, lambda=lambda, family = "binomial")
         Coefficients <- coef(fit, s = lambda)
         Active.Index <- which(Coefficients[, 1] != 0)
         data.frame(coef = abs(Coefficients[Active.Index, ])) %>%
@@ -808,7 +825,7 @@ function(input, output, session) {
       })
 
       barColors <- c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728","#9467bd")
-      names(barColors) <- names(getOmicsData())
+      names(barColors) <- names(subset_eset)
       output$singlePanel <- renderPlotly({
         options(htmlwidgets.TOJSON_ARGS = NULL)
         f1 <- list(
@@ -847,7 +864,7 @@ function(input, output, session) {
         dataset <- ensem[i]
         alpha <- subset(perf, panel == "Ensemble")$alpha
         lambda <- subset(perf, panel == "Ensemble")$lambda
-        fit <- glmnet(x=as.matrix(getOmicsData()[[dataset]]), y=demo[, input$responseVar], alpha=alpha, lambda=lambda, family = "binomial")
+        fit <- glmnet(x=as.matrix(subset_eset[[dataset]]), y=subset_response, alpha=alpha, lambda=lambda, family = "binomial")
         Coefficients <- coef(fit, s = lambda)
         Active.Index <- which(Coefficients[, 1] != 0)
         data.frame(coef = abs(Coefficients[Active.Index, ])) %>%
@@ -932,9 +949,9 @@ function(input, output, session) {
       })
       ### Base classifier
       output$pcaBasePanel <- renderCanvasXpress({
-        dataset <- getOmicsData()[[input$pcaBasePanelRadioButtons]]
+        dataset <- subset_eset[[input$pcaBasePanelRadioButtons]]
         variables <- singlePanel[[input$pcaBasePanelRadioButtons]]
-        grouping <- data.frame(Group = demo[, input$responseVar])
+        grouping <- data.frame(Group = subset_response)
         rownames(dataset) <- rownames(grouping) <- paste0("subj", 1:nrow(grouping))
 
         if(length(variables) > 2){
@@ -992,9 +1009,9 @@ function(input, output, session) {
       output$pcaEnsemblePanel <- renderCanvasXpress({
         dataset <- mapply(function(x, y){
           x[, y]
-        }, x = getOmicsData()[ensem], y = ensemblePanel) %>%
+        }, x = subset_eset[ensem], y = ensemblePanel) %>%
           do.call(cbind, .)
-        grouping <- data.frame(Group = demo[, input$responseVar])
+        grouping <- data.frame(Group = subset_response)
         rownames(dataset) <- rownames(grouping) <- paste0("subj", 1:nrow(grouping))
 
         pc <- prcomp(dataset, scale. = TRUE, center = TRUE)
@@ -1019,12 +1036,12 @@ function(input, output, session) {
       })
       ### Base classifier
       output$heatmapBasePanel <- renderCanvasXpress({
-        dataset <- getOmicsData()[[input$heatmapBasePanelRadioButtons]]
+        dataset <- subset_eset[[input$heatmapBasePanelRadioButtons]]
         variables <- singlePanel[[input$heatmapBasePanelRadioButtons]]
         y <- t(scale(dataset[, variables, drop=FALSE]))
         y[y < -2] <- -2
         y[y > 2] <- 2
-        x = data.frame(Group = demo[, input$responseVar])
+        x = data.frame(Group = subset_response)
         rownames(x) <- colnames(y) <- paste0("subj", 1:nrow(x))
         z = data.frame(dataset = rep(input$heatmapBasePanelRadioButtons, length(variables)))
         rownames(z) <- rownames(y)
@@ -1048,7 +1065,7 @@ function(input, output, session) {
             variablesClustered=TRUE)
         } else {
           y=t(as.data.frame(dataset[, variables, drop=FALSE]))
-          x = data.frame(Group = demo[, input$responseVar])
+          x = data.frame(Group = subset_response)
           colnames(y) <- rownames(x) <- paste0("subj", 1:ncol(y))
 
           canvasXpress(
@@ -1077,13 +1094,13 @@ function(input, output, session) {
       output$heatmapEnsemblePanel <- renderCanvasXpress({
         y = mapply(function(x, y){
           x[, y, drop=FALSE]
-        }, x = getOmicsData()[names(ensemblePanel)], y = ensemblePanel, SIMPLIFY = FALSE) %>%
+        }, x = subset_eset[names(ensemblePanel)], y = ensemblePanel, SIMPLIFY = FALSE) %>%
           do.call(cbind, .) %>%
           scale(.) %>%
           t
         y[y < -2] <- -2
         y[y > 2] <- 2
-        x = data.frame(Group = demo[, input$responseVar])
+        x = data.frame(Group = subset_response)
         rownames(x) <- colnames(y) <- paste0("subj", 1:nrow(x))
         z = data.frame(dataset = rep(names(ensemblePanel), sapply(ensemblePanel, length)))
         rownames(z) <- rownames(y)
@@ -1112,7 +1129,7 @@ function(input, output, session) {
       # Enrichment analysis
       dat <- mapply(function(x, y){
         x[, y, drop=FALSE]
-      }, x = getOmicsData()[names(ensemblePanel)], y = ensemblePanel, SIMPLIFY = FALSE) %>%
+      }, x = subset_eset[names(ensemblePanel)], y = ensemblePanel, SIMPLIFY = FALSE) %>%
         do.call(cbind, .)
       colnames(dat) <- sapply(strsplit(colnames(dat), "\\."), function(i) paste(i[-1], collapse = "_"))
       pairs <- split(t(combn(colnames(dat), 2)), 1:nrow(t(combn(colnames(dat), 2))))
