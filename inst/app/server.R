@@ -52,8 +52,8 @@ function(input, output, session) {
 
   # determine which datasets to perform gene set enrichment analysis on?
   output$performPathwayAnalysis <- reactive({
-    datasetNames <- sapply(names(subset_eset), function(i){
-      length(intersect(colnames(subset_eset[[i]]), unlist(kegg))) > 5
+    datasetNames <- sapply(names(getOmicsData()), function(i){
+      length(intersect(colnames(getOmicsData()[[i]]), unlist(kegg))) > 5
     })
     names(datasetNames)[datasetNames]
   })
