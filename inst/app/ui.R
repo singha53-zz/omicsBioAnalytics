@@ -70,9 +70,9 @@ sidebar <- dashboardSidebar(
         icon = icon("flask")
       ),
       menuItem(
-        "Contacts",
-        tabName = "contacts",
-        icon = icon("address-book")
+        "Generate Report",
+        tabName = "report",
+        icon = icon("clipboard-list")
       )
     )
   ),
@@ -95,15 +95,15 @@ sidebar <- dashboardSidebar(
         "Analysis",
         tabName = "analysis",
         icon = icon("bar-chart-o"),
-        menuSubItem("Patient characteristics", tabName = "subitem1"),
+        menuSubItem("Patient Characteristics", tabName = "subitem1"),
         menuSubItem("Exploratory Data Analysis", tabName = "subitem2"),
-        menuSubItem("Differential expression", tabName = "subitem3"),
-        menuSubItem("Biomarker panels", tabName = "subitem4")
+        menuSubItem("Differential Expression", tabName = "subitem3"),
+        menuSubItem("Biomarker Panels", tabName = "subitem4")
       ),
       menuItem(
-        "Contacts",
-        tabName = "contacts",
-        icon = icon("address-book")
+        "Generate Report",
+        tabName = "report",
+        icon = icon("clipboard-list")
       )
     )
   )
@@ -147,8 +147,9 @@ body <- dashboardBody(
           "methods"
         ),
         tabItem(
-          tabName = "contacts",
-          "contacts"
+          tabName = "report",
+          # omicsBioAnalytics::dataUpload()
+          omicsBioAnalytics::reportUI()
         )
       )
     )
