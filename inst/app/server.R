@@ -1310,6 +1310,154 @@ function(input, output, session) {
   })
 
 
+  ################################################################################
+  #
+  # Generate a report
+  #
+  ################################################################################
+
+  # Generate the PNG
+  png(paste0(tempdir(), "/", "pca.png"), width = 400, height = 300)
+  hist(rnorm(50), main = "PCA plot")
+  dev.off()
+  png(paste0(tempdir(), "/", "volcano_mrna.png"), width = 400, height = 300)
+  hist(rnorm(50), main = "Volcano plot")
+  dev.off()
+
+  x <- reactiveValues(imgs = list.files(tempdir()))
+  observe({
+    print(gsub(".png", "", grep(".png", x$imgs, value = TRUE)))
+    updateSelectInput(session,
+      inputId = "figs",
+      label = "Figures:",
+      choices = c("None", gsub(".png", "", grep(".png", x$imgs, value = TRUE))),
+      selected = "None"
+    )
+  })
+
+  observeEvent(input$cFig, {
+    inFile <- input$cFig
+    if (is.null(inFile))
+      return()
+    file.copy(inFile$datapath, file.path(tempdir(), inFile$name) )
+
+  })
+
+  list_of_elements <- list()
+  tracker <- reactiveValues(section = list(), fig = list())
+
+  observeEvent(input$h1Btn, {
+    nr <- input$h1Btn
+    print(paste0("add item: ", nr))
+    id <- paste0("input",input$h1Btn)
+
+    tracker$section[[id]]$txt <- input$markdowninput
+    tracker$section[[id]]$fig <- input$figs
+
+    element <- div(style="display: flex; justify-content: space-between; align-items: center; width: 100%",
+      id = paste0("newInput",nr),
+      input$markdowninput,
+      br(),
+      ifelse(input$figs == "None", "", paste("Attached Fig: ", input$figs)),
+      actionButton(paste0('removeBtn',nr), 'Remove')
+    )
+    list_of_elements[[id]] <<- element
+
+    observeEvent(input[[paste0('removeBtn',nr)]],{
+      print(paste0("delete item: ", nr))
+      shiny::removeUI(
+        selector = paste0("#newInput",nr)
+      )
+      list_of_elements <<- list_of_elements[names(list_of_elements) != paste0("input",nr)]
+
+      output$tbl = renderUI({
+        fluidRow(
+          column(
+            width = 12,
+            sortable::rank_list(
+              text = "Drag the items in any desired order",
+              labels = list_of_elements,
+              input_id = "rank_list_1"
+            )
+          )
+        )
+      })
+    })
+
+
+    output$dragAndDrop = renderUI({
+      fluidRow(
+        column(
+          width = 12,
+          sortable::rank_list(
+            text = "Drag the items in any desired order",
+            labels = list_of_elements,
+            input_id = "rank_list_1"
+          ),
+          verbatimTextOutput("results")
+        )
+      )
+    })
+
+  })
+
+  ## drag and drop is fixed
+  observe({
+    list_of_elements <<- list_of_elements[input$rank_list_1]
+  })
+  # observe({
+  #     tracker$section <- tracker$section[input$rank_list_1]
+  # })
+
+
+  output$report <- downloadHandler(
+    # For PDF output, change this to "report.pdf"
+    filename = "report.doc",
+    content = function(file) {
+      # Copy the report file to a temporary directory before processing it, in
+      # case we don't have write permissions to the current working dir (which
+      # can happen when deployed).
+      tempReport <- file.path(tempdir(), "report.Rmd")
+      file.copy("report.Rmd", tempReport, overwrite = TRUE)
+      file.copy("HFdiagnosis.bib", file.path(tempdir(), "HFdiagnosis.bib"), overwrite = TRUE)
+
+      # Set up parameters to pass to Rmd document
+      params <- list(title = input$title,
+        author = input$author,
+        affiliation = input$aff,
+        section = tracker$section,
+        ord = names(list_of_elements))
+
+      # Knit the document, passing in the `params` list, and eval it in a
+      # child of the global environment (this isolates the code in the document
+      # from the code in this app).
+      withProgress(message = 'Download in progress',
+        detail = 'This may take a while...', value = 0, {
+          rmarkdown::render(tempReport, output_file = file,
+            params = params,
+            envir = new.env(parent = globalenv())
+          )
+        })
+    }
+  )
+
+  # A temp file to save the output.
+  # This file will be removed later by renderImage
+  # outfile <- tempfile(fileext = '.png')
+
+  output$myImage <- renderImage({
+
+    # Return a list containing the filename
+    list(src = paste0(tempdir(), "/", input$figs, ".png"),
+      contentType = 'image/png',
+      width = 400,
+      height = 300,
+      alt = "No image was selected from side panel.")
+  }, deleteFile = FALSE)
+
+
+
+
   # Voice-enabled analytics
   observeEvent(input$alexa, {
 
