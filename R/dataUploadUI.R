@@ -8,7 +8,9 @@ dataUpload <- function() {
         radioButtons("sep", "file type:",
           choices = c(Comma = ",", Tab = "\t"), selected = ",")),
       column(6, fileInput(inputId = "demo", label = "Demographics data")),
-      column(6, uiOutput('responseVar'))),
+      column(6, uiOutput('responseVar')),
+      column(6, uiOutput('refVar'))
+      ),
     fluidRow(
       column(6, fileInput("omicsData",
         label="Omics data (1 or more csv files)",

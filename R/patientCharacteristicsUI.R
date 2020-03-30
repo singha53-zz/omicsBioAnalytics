@@ -18,7 +18,7 @@ patientCharacteristics <- function() {
       )), column(6, radioButtons(
         "test",
         "Which test should be applied?",
-        c("Student's t-Test" = "ttest", "Wilcoxon Rank Sum test" = "wtest"),
+        c("Linear regression" = "lr", "Kruskal-Wallis Test" = "ks"),
         inline = TRUE
       ))),
       fluidRow(
@@ -33,8 +33,8 @@ patientCharacteristics <- function() {
           h3(textOutput("testTitle")),
           verbatimTextOutput("test"),
           fluidRow(column(6, h6(textOutput("lmAssumptions"))),
-            column(6, actionButton("ttest", "t-test assumptions", icon = icon("table")),
-              bsModal("hypothesisTests", "Assessment of linear models assumptions.", "ttest", size = "large",
+            column(6, actionButton("lr", "linear regression assumptions", icon = icon("table")),
+              bsModal("hypothesisTests", "Assessment of linear regression assumptions.", "lr", size = "large",
                 DT::dataTableOutput("tbl")))),
           h3("Conclusion"),
           tags$style(type='text/css', '#conclusion {color: red;}'),

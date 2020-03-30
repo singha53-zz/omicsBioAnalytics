@@ -2,6 +2,8 @@
 lvl1Color <- "#66C2A5"
 lvl2Color <- "#FC8D62"
 
+groupColors <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
 dynamodbTableName <- Sys.getenv("TABLE_NAME")
 S3Bucket <- Sys.getenv("S3BUCKET")
 previousWorkloads <- sapply(get_bucket(bucket = S3Bucket), function(i){
@@ -23,9 +25,6 @@ function(input, output, session) {
   # Demographics data upload
   getDemoData <- reactive({
     req(input$demo)
-    # demoData <- read.csv(input$demo$datapath,
-    #   header = input$header,
-    #   sep = input$sep)
     demoData <- read.csv(input$demo$datapath, header = TRUE, sep = input$sep)
     demoData
   })
@@ -33,9 +32,14 @@ function(input, output, session) {
   # show column names of demo dataset
   output$responseVar <- renderUI({
     keepCols <- apply(getDemoData(), 2, function(i){
-      ifelse(nlevels(factor(as.character(i))) == 2, TRUE, FALSE)
+      keepvar <- as.character(i)
+      ifelse(length(table(as.character(i))) < 9 & min(table(as.character(i))) > 1, TRUE, FALSE)
     })
     selectInput('responseVar', 'Select response variable', colnames(getDemoData()[, keepCols]))
+  })
+
+  output$refVar <- renderUI({
+    selectInput('refVar', 'Select reference level', unique(getDemoData()[, input$responseVar]))
   })
 
   # omics data upload
@@ -71,6 +75,8 @@ function(input, output, session) {
     ################################################################################
     ## split demo data into cat and cont vars
     demo <- getDemoData()
+    response <- relevel(factor(as.character(demo[, input$responseVar])), ref = input$refVar)
+    print(response)
     demoSplit <- omicsBioAnalytics::splitData(demo, group = input$responseVar, trim = 0.8)
     ## @@@@@@@@@@@@@@@@@@@@@@@ Continuous variable panel @@@@@@@@@@@@@@@@@@@@@@@ ##
     updateRadioButtons(session, "vars",
@@ -78,9 +84,11 @@ function(input, output, session) {
       choices = colnames(demoSplit$data.cont),
       selected = colnames(demoSplit$data.cont)[1], inline = TRUE
     )
+
     observe({
+      req(input$vars != "")
       DF <- reactive({
-        df <- data.frame(x = demo[, input$responseVar],
+        df <- data.frame(x = response,
           y = if (input$transform == "no") {
             demo[, input$vars]
           } else {
@@ -90,48 +98,47 @@ function(input, output, session) {
       })
 
       fit <- reactive({
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           lm(y~x, data = DF())
         } else {
-          wilcox.test(y~x, data = DF())
+          kruskal.test(y~x, data = DF())
         }
       })
 
-      f <- list(family = "Courier New, monospace",
-        size = 15,
-        color = "#7f7f7f")
-      xaxis <- list(title = input$responseVar,
-        titlefont = f)
       yaxis <- reactive({
-        list(title = if (input$transform == "no") {
+        if(input$transform == "no") {
           input$vars
         } else {
           paste(input$vars, "(log2)")
-        },
-          titlefont = f)
+        }
       })
       title <- reactive({
-        title = paste(input$vars, " vs. ", input$responseVar)
+        paste(input$vars, " vs. ", input$responseVar)
       })
       output$plot <- renderPlotly({
         options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
-        plot_ly(data = DF(), y = ~y, color = ~x, type = "box") %>%
-            layout(showlegend = FALSE) %>%
-            layout(xaxis = xaxis,
-              yaxis = yaxis(),
-              title = title())
+        ggplotly(DF() %>%
+        ggplot(aes(x = x, y = y, fill = x)) +
+          geom_boxplot() +
+          xlab(input$responseVar) +
+          ylab(yaxis()) +
+          ggtitle(title()) +
+          theme_classic() +
+          theme(legend.position = "none") +
+          scale_fill_manual(values=groupColors[1:nlevels(response)])
+          )
       })
 
       output$testTitle <- renderText({
-        if(input$test == "ttest"){
-          "Student's t-Test"
+        if(input$test == "lr"){
+          "Linear Regression"
         } else {
-          "Wilcoxon Rank Sum test"
+          "Kruskal-Wallis Test"
         }
       })
 
       assumptions <- reactive({
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           gvlma::gvlma(fit())$GlobalTest[2:6] %>%
             do.call(rbind, .) %>%
             as.data.frame %>%
@@ -159,11 +166,11 @@ function(input, output, session) {
       output$tbl = DT::renderDataTable( assumptions(), options = list(lengthChange = FALSE))
 
       output$lmAssumptions <- renderText({
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           if(assumptions()$Decision[1] == "Assumptions acceptable."){
-            "Assumptions acceptable. Student's t-Test is recommended."
+            "Assumptions acceptable. Linear regression is recommended."
           } else {
-            "Try a log2-transformation. If that doesn't work, the Wilcoxon Rank Sum test is recommended."
+            "Try a log2-transformation. If that doesn't work, the Kruskal-Wallis Test is recommended."
           }
         } else {
           return(NULL)
@@ -171,7 +178,7 @@ function(input, output, session) {
       })
 
       output$test <- renderPrint({
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           coef(summary(fit()))
         } else {
           fit()
@@ -189,7 +196,7 @@ function(input, output, session) {
             SD  = sd(y, na.rm = TRUE)) %>%
           dplyr::rename(Group = x)
 
-        if(input$test == "ttest"){
+        if(input$test == "lr"){
           parametricDescStat <- signif(rbind(summaryStat$Mean, summaryStat$SD), 3)
           rownames(parametricDescStat) <- c("Mean", "SD")
           colnames(parametricDescStat) <- summaryStat$Group
@@ -207,12 +214,12 @@ function(input, output, session) {
       })
 
       output$conclusion <- renderText({
-        if(input$test == "ttest"){
-          ifelse(coef(summary(fit()))[2, "Pr(>|t|)"] < 0.05,
-            paste0("There is a statistically significant difference (at p<0.05) in mean ",
-              input$var, " between the groups."),
-            paste0("There is no statistically significant difference (at p<0.05) in mean ",
-              input$var, " between the groups."))
+        if(input$test == "lr"){
+          ifelse(summary(aov(fit()))[[1]][1, "Pr(>F)"] < 0.05,
+            paste0("There is a statistically significant difference (at p<0.05) ",
+              input$var, " between the groups based an Analysis of Variance (see pairwise comparisons above)."),
+            paste0("There is no statistically significant difference (at p<0.05) ",
+              input$var, " between the groups based an Analysis of Variance (see pairwise comparisons above)."))
         } else {
           ifelse(fit()$p.value < 0.05,
             paste0("There is a statistically significant difference (at p<0.05) in ",
@@ -230,21 +237,21 @@ function(input, output, session) {
     )
     observe({
       output$obsCounts <- renderGvis({
-        d <- as.data.frame(as.data.frame.matrix(addmargins(table(demo[, input$responseVar], demo[, input$catVar]))))
+        d <- as.data.frame(as.data.frame.matrix(addmargins(table(response, demo[, input$catVar]))))
         gvisTable(cbind(' '=rownames(d), d))
       })
       output$obsFreq <- renderGvis({
-        d <- as.data.frame(as.data.frame.matrix(apply(table(demo[, input$responseVar], demo[, input$catVar]), 1, function(i){
+        d <- as.data.frame(as.data.frame.matrix(apply(table(response, demo[, input$catVar]), 1, function(i){
           round(100*i/sum(i), 0)
         }) %>% t))
         gvisTable(cbind(' '=rownames(d), d))
       })
       output$chisqTest <- renderPrint({
         x <- input$catVar
-        chisq.test(demo[, x], demo[, input$responseVar])
+        chisq.test(demo[, x], response)
       })
       output$chisqConclusion <- renderText({
-        pval <- chisq.test(demo[, input$catVar], demo[, input$responseVar])$p.value
+        pval <- chisq.test(demo[, input$catVar], response)$p.value
         ifelse(pval < 0.05,
           paste0("There is a statistically significant association (at p<0.05) between ",
             input$catVar, " and ", input$responseVar, " (p-value = ", signif(pval, 3), ")."),
@@ -307,7 +314,7 @@ function(input, output, session) {
             )
           output[[paste("varExp", i, sep="_")]] <- renderPrint({summary(pcs)})
           output[[paste("pcaPlot", i, sep="_")]] <- renderPlot({
-            omicsBioAnalytics::pcaPairs(pcs = pcs, y = demo[, input$responseVar], col=c(lvl1Color, lvl2Color))
+            omicsBioAnalytics::pcaPairs(pcs = pcs, y = response, col=groupColors[1:nlevels(response)])
           })
           output[[paste("pcClinVarPlot", i, sep="_")]] <- renderPlotly({
             ggplotly(pcaHeatmap(pcs = pcs$x, demo = demo)) %>%
@@ -333,6 +340,18 @@ function(input, output, session) {
         myTabs <- lapply(names(getOmicsData()), function(i){
           tabPanel(i,
             fluidRow(
+              column(6,
+                radioButtons(paste("comparison", i, sep="_"),
+                  label = "Comparison:",
+                  choices = paste(levels(response)[1], setdiff(levels(response), levels(response)[1]), sep = " vs. "),
+                  selected = paste(levels(response)[1], setdiff(levels(response), levels(response)[1]), sep = " vs. ")[1],
+                  inline = TRUE)
+              ),
+              column(6,
+                radioButtons(paste("deTest", i, sep="_"), "Test:",
+                  c("OLS" = "ols", "LIMMA" = "limma", "LIMMA voom" = "vlimma"),
+                  "limma",
+                  inline = TRUE)),
               column(6, verbatimTextOutput(paste("selection", i, sep="_")), style = 'padding: 15px 10px 0px 10px;'),
               column(6, align = "center",
                 sliderInput(paste("fdr", i, sep="_"), h3("Select FDR threshold", align = "center"),
@@ -380,16 +399,22 @@ function(input, output, session) {
         do.call(tabsetPanel, myTabs)
       })
 
+
       ## Backend
       lapply(names(getOmicsData()),
         function(i) {
           observeEvent(input[[paste("fdr", i, sep="_")]], {
-            design <- model.matrix(~demo[, input$responseVar])
-            fit <- eBayes(lmFit(t(getOmicsData()[[i]]), design))
-            top <- topTable(fit, coef = 2, adjust.method = "BH", n = nrow(fit), sort.by="none")
-            top <- top %>% mutate(FeatureName = colnames(getOmicsData()[[i]]),
-              sig = -log10(P.Value)) %>%
-              arrange(P.Value)
+          observeEvent(input[[paste("comparison", i, sep="_")]], {
+          observeEvent(input[[paste("deTest", i, sep="_")]], {
+            req(input[[paste("fdr", i, sep="_")]])
+            req(input[[paste("comparison", i, sep="_")]])
+            req(input[[paste("deTest", i, sep="_")]])
+            eset <- getOmicsData()[[i]]
+            selectedCoef <- which(levels(response) == sapply(strsplit(input[[paste("comparison", i, sep="_")]], " vs. "), function(i){ i[[2]]}))
+            req(length(selectedCoef) == 1)
+
+            design <- model.matrix(~response)
+            top <- generateTopTable(eset, design, coefNumber = selectedCoef, test = input[[paste("deTest", i, sep="_")]])
 
             subsetTop <- reactive({
               top = top %>%
@@ -425,29 +450,17 @@ function(input, output, session) {
               s <- event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))
               if (length(s)) {
                 var <- unlist(s[["key"]])
-                lvls <- levels(demo[, input$responseVar])
-                lvl1 <- as.numeric(getOmicsData()[[i]][demo[, input$responseVar] == lvls[1], var])
-                lvl2 <- as.numeric(getOmicsData()[[i]][demo[, input$responseVar] == lvls[2], var])
-
-                f <- list(family = "Courier New, monospace",
-                  size = 15, color = "#7f7f7f")
-                xaxis <- list(title = input$responseVar, titlefont = f)
-                yaxis <- list(title = var, titlefont = f)
-
                 options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
-                plot_ly(type = 'box') %>%
-                  add_boxplot(y = lvl1, jitter = 0.3, pointpos = -1.8, boxpoints = 'all',
-                    marker = list(color = lvl1Color),
-                    line = list(color = lvl1Color),
-                    name = paste0(lvls[1], " (n=", length(lvl1), ")")) %>%
-                  add_boxplot(y = lvl2, jitter = 0.3, pointpos = -1.8, boxpoints = 'all',
-                    marker = list(color = lvl2Color),
-                    line = list(color = lvl2Color),
-                    name = paste0(lvls[2], "( n=", length(lvl2), ")")) %>%
-                  layout(showlegend = FALSE) %>%
-                  layout(xaxis = xaxis,
-                    yaxis = yaxis,
-                    title = paste(var, "vs.", input$responseVar))
+                ggplotly(data.frame(x = response, y = eset[, var]) %>%
+                    ggplot(aes(x = x, y = y, fill = x)) +
+                    geom_boxplot() +
+                    xlab(input$responseVar) +
+                    ylab(var) +
+                    ggtitle(paste(var, " vs. ", input$responseVar)) +
+                    theme_classic() +
+                    theme(legend.position = "none") +
+                    scale_fill_manual(values=groupColors[1:length(unique(response))])
+                )
               } else {
                 plotly_empty()
               }
@@ -475,21 +488,21 @@ function(input, output, session) {
                 dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
 
             ## Differential pathway analysis
-            if(length(intersect(colnames(getOmicsData()[[i]]), unlist(kegg)) > 5) &
-                length(intersect(colnames(getOmicsData()[[i]]), unlist(wikipathways)) > 5)){
+            if(length(intersect(colnames(eset), unlist(kegg)) > 5) &
+                length(intersect(colnames(eset), unlist(wikipathways)) > 5)){
               ## KEGG pathways
               indKegg <- lapply(kegg, function(pathway){
-                which(colnames(getOmicsData()[[i]]) %in% pathway)
+                which(colnames(eset) %in% pathway)
               })
               indKegg <- indKegg[sapply(indKegg, length) > 5]
-              gsetKegg <- camera(t(getOmicsData()[[i]]), indKegg, design, contrast = 2)
+              gsetKegg <- camera(t(eset), indKegg, design, contrast = 2)
               gsetKegg$adj.P.Val <- p.adjust(gsetKegg$PValue, "BH")
               ## Wikipathways
               indWiki <- lapply(wikipathways, function(pathway){
-                which(colnames(getOmicsData()[[i]]) %in% pathway)
+                which(colnames(eset) %in% pathway)
               })
               indWiki <- indWiki[sapply(indWiki, length) > 5]
-              gsetWiki <- camera(t(getOmicsData()[[i]]), indWiki, design, contrast = 2)
+              gsetWiki <- camera(t(eset), indWiki, design, contrast = 2)
               gsetWiki$adj.P.Val <- p.adjust(gsetWiki$PValue, "BH")
             } else {
               gsetKegg <- gsetWiki <- NULL
@@ -547,7 +560,7 @@ function(input, output, session) {
               if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
                 gset <- rbind(gsetKegg, gsetWiki)
                 pathway.genes <- lapply(append(indKegg, indWiki), function(ind){
-                  colnames(getOmicsData()[[i]])[ind]
+                  colnames(eset)[ind]
                 })
                 ## up-regulated
                 up.pathways <- gset[gset$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gset$Direction == "Up", , drop=FALSE]
@@ -573,7 +586,7 @@ function(input, output, session) {
               if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
                 gset <- rbind(gsetKegg, gsetWiki)
                 pathway.genes <- lapply(append(indKegg, indWiki), function(ind){
-                  colnames(getOmicsData()[[i]])[ind]
+                  colnames(eset)[ind]
                 })
                 ## down-regulated
                 down.pathways <- gset[gset$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gset$Direction == "Down", , drop=FALSE]
@@ -596,6 +609,8 @@ function(input, output, session) {
               }
             })
           })
+          })
+          })
         }
       )})
 
@@ -615,9 +630,46 @@ function(input, output, session) {
       choices = names(getOmicsData()),
       selected = names(getOmicsData())
     )
+    updateCheckboxGroupInput(session, "selectedGroups",
+      label = "Select two groups to compare (required):",
+      choices = levels(response),
+      selected = levels(response)[1:2],
+      inline = TRUE
+    )
 
     ## Classification performances
     observeEvent(input$build, {
+      errMsg <- reactive({validate(
+        need(length(input$selectedGroups) != 2, "Please only select two groups."),
+        need(length(input$checkGroup_single) > 0, "Please select at least one dataset to build a classifier."),
+        need(length(input$checkGroup_ensemble) > 0, "Please select at least one dataset to build a ensemble classifier.")
+      )})
+      output$errMsg <- renderUI({
+        errMsg()
+      })
+      req(length(input$selectedGroups) == 2)
+      req(length(input$checkGroup_single) > 0)
+      req(length(input$checkGroup_ensemble) > 0)
+      req(length(response) > 0 )
+      req(sum(input$selectedGroups %in% response)>0)
+      print("response")
+      print(response)
+      print(input$selectedGroups)
+      print(response[response %in% input$selectedGroups])
+
+      ## reduce data to two groups
+      if(nlevels(response) > 2){
+        subset_response <- isolate({droplevels(response[response %in% input$selectedGroups])})
+        subset_eset <- isolate({lapply(getOmicsData(), function(i){
+          i[response %in% input$selectedGroups, ]
+        })})
+      } else {
+        subset_response <- isolate({response})
+        subset_eset <- isolate({getOmicsData()})
+      }
+
+      # if response is coded with numbers only, change it to a valid R variable
+      subset_response <- factor(make.names(subset_response))
       isolate(alphaMin <- input$alpha[1])
       isolate(alphaMax <- input$alpha[2])
       isolate(alphalength <- input$alphaGrid)
@@ -636,7 +688,7 @@ function(input, output, session) {
           classProbs = TRUE,
           savePredictions = TRUE)
         set.seed(123)
-        ctrl$index <- caret::createMultiFolds(demo[, input$responseVar], 5, n_repeats)
+        ctrl$index <- caret::createMultiFolds(subset_response, 5, n_repeats)
       } else {
         ctrl <- caret::trainControl(method = "repeatedcv",
           number = 10,
@@ -645,7 +697,7 @@ function(input, output, session) {
           classProbs = TRUE,
           savePredictions = TRUE)
         set.seed(456)
-        ctrl$index <- caret::createMultiFolds(demo[, input$responseVar], 10, n_repeats)
+        ctrl$index <- caret::createMultiFolds(subset_response, 10, n_repeats)
       }
 
       enetGrid = expand.grid(alpha = seq(alphaMin, alphaMax, length.out = alphalength),
@@ -660,7 +712,7 @@ function(input, output, session) {
             # Increment the progress bar, and update the detail text.
             incProgress(1/length(datasets), detail = paste("Building ", dat, " model..."))
 
-            mods[[dat]] <- caret::train(x=getOmicsData()[[dat]], y=demo[, input$responseVar],
+            mods[[dat]] <- caret::train(x=subset_eset[[dat]], y=subset_response,
               preProc=c("center", "scale"),
               method = "glmnet",
               metric = "ROC",
@@ -702,44 +754,6 @@ function(input, output, session) {
             dplyr::slice(1) %>%
             ungroup() %>%
             arrange(desc(Mean))
-
-          ## compare classification perforamnce between panels
-          comparePanels <- combn(c(datasets, "Ensemble"), 2)
-          delong <- pred %>%
-            mutate(panel_alpha_lambda = paste(panel, alpha, lambda, sep = "_")) %>%
-            filter(panel_alpha_lambda %in% paste(perf$panel, perf$alpha, perf$lambda, sep = "_")) %>%
-            group_by(obs, rowIndex, alpha, lambda, panel) %>%
-            dplyr::summarise(prob = mean(Yes)) %>%
-            ungroup %>%
-            dplyr::select(obs, rowIndex, panel, prob) %>%
-            tidyr::spread(panel, prob) %>%
-            tidyr::nest() %>%
-            mutate(delongPvalue = purrr::map(data, ~{
-              pvals <- apply(comparePanels, 2, function(i){
-                one <- i[1]; two <- i[2];
-                roc1 <- pROC::roc(.$obs, as.data.frame(.)[, one], direction = "<")
-                roc2 <- pROC::roc(.$obs, as.data.frame(.)[, two], direction = "<")
-                pROC::roc.test(roc1, roc2)$p.value
-              })
-              data.frame(panel1 = comparePanels[1,],
-                panel2=comparePanels[2,],
-                pvalue=pvals)
-            })) %>%
-            tidyr::unnest(delongPvalue)
-          delong$panel1 <- as.character(delong$panel1)
-          delong$panel2 <- as.character(delong$panel2)
-          mat <- data.frame(panel1 = c(delong$panel1, delong$panel2),
-            panel2 = c(delong$panel2, delong$panel1),
-            pvalue = rep(delong$pvalue, 2)) %>%
-            tidyr::spread(panel2, pvalue)
-          rownames(mat) <- mat$panel1
-          mat <- as.matrix(mat[,-1])
-          diag(mat) <- 1
-          mat <- mat[c(single, "Ensemble"),c(single, "Ensemble")]
-          print("mat")
-          print(mat)
-          output$delongPvalues <- renderPlot({
-            pheatmap::pheatmap(mat, display_numbers = matrix(ifelse(mat < 0.05, paste(signif(mat,2), "*"), signif(mat, 2)), nrow(mat)), color = colorRampPalette(c("lightblue", rep("white", 19)))(20), cluster_cols = FALSE, cluster_rows = FALSE, legend = FALSE, main = "De Long p-values")})
 
           ## Compuate roc curves
           rocTable <- pred %>%
@@ -794,7 +808,7 @@ function(input, output, session) {
         dataset <- single[i]
         alpha <- subset(perf, panel == dataset)$alpha
         lambda <- subset(perf, panel == dataset)$lambda
-        fit <- glmnet(x=as.matrix(getOmicsData()[[dataset]]), y=demo[, input$responseVar], alpha=alpha, lambda=lambda, family = "binomial")
+        fit <- glmnet(x=as.matrix(subset_eset[[dataset]]), y=subset_response, alpha=alpha, lambda=lambda, family = "binomial")
         Coefficients <- coef(fit, s = lambda)
         Active.Index <- which(Coefficients[, 1] != 0)
         data.frame(coef = abs(Coefficients[Active.Index, ])) %>%
@@ -811,7 +825,7 @@ function(input, output, session) {
       })
 
       barColors <- c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728","#9467bd")
-      names(barColors) <- names(getOmicsData())
+      names(barColors) <- names(subset_eset)
       output$singlePanel <- renderPlotly({
         options(htmlwidgets.TOJSON_ARGS = NULL)
         f1 <- list(
@@ -850,7 +864,7 @@ function(input, output, session) {
         dataset <- ensem[i]
         alpha <- subset(perf, panel == "Ensemble")$alpha
         lambda <- subset(perf, panel == "Ensemble")$lambda
-        fit <- glmnet(x=as.matrix(getOmicsData()[[dataset]]), y=demo[, input$responseVar], alpha=alpha, lambda=lambda, family = "binomial")
+        fit <- glmnet(x=as.matrix(subset_eset[[dataset]]), y=subset_response, alpha=alpha, lambda=lambda, family = "binomial")
         Coefficients <- coef(fit, s = lambda)
         Active.Index <- which(Coefficients[, 1] != 0)
         data.frame(coef = abs(Coefficients[Active.Index, ])) %>%
@@ -935,9 +949,9 @@ function(input, output, session) {
       })
       ### Base classifier
       output$pcaBasePanel <- renderCanvasXpress({
-        dataset <- getOmicsData()[[input$pcaBasePanelRadioButtons]]
+        dataset <- subset_eset[[input$pcaBasePanelRadioButtons]]
         variables <- singlePanel[[input$pcaBasePanelRadioButtons]]
-        grouping <- data.frame(Group = demo[, input$responseVar])
+        grouping <- data.frame(Group = subset_response)
         rownames(dataset) <- rownames(grouping) <- paste0("subj", 1:nrow(grouping))
 
         if(length(variables) > 2){
@@ -995,9 +1009,9 @@ function(input, output, session) {
       output$pcaEnsemblePanel <- renderCanvasXpress({
         dataset <- mapply(function(x, y){
           x[, y]
-        }, x = getOmicsData()[ensem], y = ensemblePanel) %>%
+        }, x = subset_eset[ensem], y = ensemblePanel) %>%
           do.call(cbind, .)
-        grouping <- data.frame(Group = demo[, input$responseVar])
+        grouping <- data.frame(Group = subset_response)
         rownames(dataset) <- rownames(grouping) <- paste0("subj", 1:nrow(grouping))
 
         pc <- prcomp(dataset, scale. = TRUE, center = TRUE)
@@ -1022,12 +1036,12 @@ function(input, output, session) {
       })
       ### Base classifier
       output$heatmapBasePanel <- renderCanvasXpress({
-        dataset <- getOmicsData()[[input$heatmapBasePanelRadioButtons]]
+        dataset <- subset_eset[[input$heatmapBasePanelRadioButtons]]
         variables <- singlePanel[[input$heatmapBasePanelRadioButtons]]
         y <- t(scale(dataset[, variables, drop=FALSE]))
         y[y < -2] <- -2
         y[y > 2] <- 2
-        x = data.frame(Group = demo[, input$responseVar])
+        x = data.frame(Group = subset_response)
         rownames(x) <- colnames(y) <- paste0("subj", 1:nrow(x))
         z = data.frame(dataset = rep(input$heatmapBasePanelRadioButtons, length(variables)))
         rownames(z) <- rownames(y)
@@ -1051,7 +1065,7 @@ function(input, output, session) {
             variablesClustered=TRUE)
         } else {
           y=t(as.data.frame(dataset[, variables, drop=FALSE]))
-          x = data.frame(Group = demo[, input$responseVar])
+          x = data.frame(Group = subset_response)
           colnames(y) <- rownames(x) <- paste0("subj", 1:ncol(y))
 
           canvasXpress(
@@ -1080,13 +1094,13 @@ function(input, output, session) {
       output$heatmapEnsemblePanel <- renderCanvasXpress({
         y = mapply(function(x, y){
           x[, y, drop=FALSE]
-        }, x = getOmicsData()[names(ensemblePanel)], y = ensemblePanel, SIMPLIFY = FALSE) %>%
+        }, x = subset_eset[names(ensemblePanel)], y = ensemblePanel, SIMPLIFY = FALSE) %>%
           do.call(cbind, .) %>%
           scale(.) %>%
           t
         y[y < -2] <- -2
         y[y > 2] <- 2
-        x = data.frame(Group = demo[, input$responseVar])
+        x = data.frame(Group = subset_response)
         rownames(x) <- colnames(y) <- paste0("subj", 1:nrow(x))
         z = data.frame(dataset = rep(names(ensemblePanel), sapply(ensemblePanel, length)))
         rownames(z) <- rownames(y)
@@ -1115,7 +1129,7 @@ function(input, output, session) {
       # Enrichment analysis
       dat <- mapply(function(x, y){
         x[, y, drop=FALSE]
-      }, x = getOmicsData()[names(ensemblePanel)], y = ensemblePanel, SIMPLIFY = FALSE) %>%
+      }, x = subset_eset[names(ensemblePanel)], y = ensemblePanel, SIMPLIFY = FALSE) %>%
         do.call(cbind, .)
       colnames(dat) <- sapply(strsplit(colnames(dat), "\\."), function(i) paste(i[-1], collapse = "_"))
       pairs <- split(t(combn(colnames(dat), 2)), 1:nrow(t(combn(colnames(dat), 2))))
