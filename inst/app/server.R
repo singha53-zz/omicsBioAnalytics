@@ -647,7 +647,7 @@ function(input, output, session) {
       output$errMsg <- renderUI({
         errMsg()
       })
-      req(length(input$selectedGroups) > 1)
+      req(length(input$selectedGroups) == 2)
       req(length(input$checkGroup_single) > 0)
       req(length(input$checkGroup_ensemble) > 0)
       req(length(response) > 0 )
