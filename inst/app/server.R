@@ -340,14 +340,14 @@ function(input, output, session) {
           tabPanel(i,
             fluidRow(
               column(6,
-                radioButtons("comparison",
+                radioButtons(paste("comparison", i, sep="_"),
                   label = "Comparison:",
                   choices = paste(levels(response)[1], setdiff(levels(response), levels(response)[1]), sep = " vs. "),
                   selected = paste(levels(response)[1], setdiff(levels(response), levels(response)[1]), sep = " vs. ")[1],
                   inline = TRUE)
               ),
               column(6,
-                radioButtons("deTest", "Test:",
+                radioButtons(paste("deTest", i, sep="_"), "Test:",
                   c("OLS" = "ols", "LIMMA" = "limma", "LIMMA voom" = "vlimma"),
                   "limma",
                   inline = TRUE)),
@@ -403,15 +403,15 @@ function(input, output, session) {
         function(i) {
           observeEvent(input[[paste("fdr", i, sep="_")]], {
 
-            observeEvent(input$comparison, {
-              req(input$comparison)
-              observeEvent(input$deTest, {
-                req(input$deTest)
+            observeEvent(input[[paste("comparison", i, sep="_")]], {
+              req(input[[paste("comparison", i, sep="_")]])
+              observeEvent(input[[paste("deTest", i, sep="_")]], {
+                req(input[[paste("deTest", i, sep="_")]])
                 subset_eset <- getOmicsData()[[i]]
-                selectedCoef <- which(levels(response) == sapply(strsplit(input$comparison, " vs. "), function(i){ i[[2]]}))
+                selectedCoef <- which(levels(response) == sapply(strsplit(input[[paste("comparison", i, sep="_")]], " vs. "), function(i){ i[[2]]}))
 
                 design <- model.matrix(~response)
-                top <- generateTopTable(subset_eset, design, coefNumber = selectedCoef, test = input$deTest)
+                top <- generateTopTable(subset_eset, design, coefNumber = selectedCoef, test = input[[paste("deTest", i, sep="_")]])
 
                 subsetTop <- reactive({
                   top = top %>%
