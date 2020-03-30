@@ -1,0 +1,36 @@
+---
+title: "`r params$title`"
+author: "`r params$author`$^1$"
+date: "$^1$ `r params$affiliation`"
+output: word_document
+params:
+  section: NA
+  ord: NA
+  title: NA
+  author: NA
+  affiliation: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = FALSE, warning = FALSE, message = FALSE)
+
+library(flextable)
+library(knitr)
+```
+
+```{r}
+results <- character()
+for(i in params$ord){
+  # Put everything into the results vector
+  # results <- c(results, "\n\n",
+  #                       knit_print(params$section[[i]]$txt))
+  if(params$section[[i]]$fig == "None"){
+    results <- c(results, "\n\n", params$section[[i]]$txt)
+  } else {
+    filename <- paste0(tempdir(), "/", params$section[[i]]$fig, ".png")
+    results <- c(results, "\n\n", knitr:::wrap(include_graphics(filename)), "\n\n", params$section[[i]]$txt)
+  }
+
+}
+asis_output(results)
+```
