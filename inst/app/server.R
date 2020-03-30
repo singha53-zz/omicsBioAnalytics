@@ -640,7 +640,7 @@ function(input, output, session) {
     ## Classification performances
     observeEvent(input$build, {
       errMsg <- reactive({validate(
-        need(length(input$selectedGroups) > 1, "Please only select two groups."),
+        need(length(input$selectedGroups) != 2, "Please only select two groups."),
         need(length(input$checkGroup_single) > 0, "Please select at least one dataset to build a classifier."),
         need(length(input$checkGroup_ensemble) > 0, "Please select at least one dataset to build a ensemble classifier.")
       )})
