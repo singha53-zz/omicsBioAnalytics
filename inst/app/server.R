@@ -629,9 +629,29 @@ function(input, output, session) {
       choices = names(getOmicsData()),
       selected = names(getOmicsData())
     )
+    updateCheckboxGroupInput(session, "selectedGroups",
+      label = "Select two groups to compare (required):",
+      choices = levels(response),
+      selected = levels(response)[1],
+      inline = TRUE
+    )
 
     ## Classification performances
     observeEvent(input$build, {
+      errMsg <- reactive({validate(
+        need(length(input$selectedGroups) > 1, "Please only select two groups."),
+        need(length(input$checkGroup_single) > 0, "Please select at least one dataset to build a classifier."),
+        need(length(input$checkGroup_ensemble) > 0, "Please select at least one dataset to build a ensemble classifier.")
+      )})
+      output$errMsg <- renderUI({
+        errMsg()
+      })
+      req(length(input$selectedGroups) > 1)
+      req(length(input$checkGroup_single) > 0)
+      req(length(input$checkGroup_ensemble) > 0)
+      print(input$selectedGroups)
+
+
       isolate(alphaMin <- input$alpha[1])
       isolate(alphaMax <- input$alpha[2])
       isolate(alphalength <- input$alphaGrid)
@@ -716,42 +736,6 @@ function(input, output, session) {
             dplyr::slice(1) %>%
             ungroup() %>%
             arrange(desc(Mean))
-
-          ## compare classification perforamnce between panels
-          comparePanels <- combn(c(datasets, "Ensemble"), 2)
-          delong <- pred %>%
-            mutate(panel_alpha_lambda = paste(panel, alpha, lambda, sep = "_")) %>%
-            filter(panel_alpha_lambda %in% paste(perf$panel, perf$alpha, perf$lambda, sep = "_")) %>%
-            group_by(obs, rowIndex, alpha, lambda, panel) %>%
-            dplyr::summarise(prob = mean(Yes)) %>%
-            ungroup %>%
-            dplyr::select(obs, rowIndex, panel, prob) %>%
-            tidyr::spread(panel, prob) %>%
-            tidyr::nest() %>%
-            mutate(delongPvalue = purrr::map(data, ~{
-              pvals <- apply(comparePanels, 2, function(i){
-                one <- i[1]; two <- i[2];
-                roc1 <- pROC::roc(.$obs, as.data.frame(.)[, one], direction = "<")
-                roc2 <- pROC::roc(.$obs, as.data.frame(.)[, two], direction = "<")
-                pROC::roc.test(roc1, roc2)$p.value
-              })
-              data.frame(panel1 = comparePanels[1,],
-                panel2=comparePanels[2,],
-                pvalue=pvals)
-            })) %>%
-            tidyr::unnest(delongPvalue)
-          delong$panel1 <- as.character(delong$panel1)
-          delong$panel2 <- as.character(delong$panel2)
-          mat <- data.frame(panel1 = c(delong$panel1, delong$panel2),
-            panel2 = c(delong$panel2, delong$panel1),
-            pvalue = rep(delong$pvalue, 2)) %>%
-            tidyr::spread(panel2, pvalue)
-          rownames(mat) <- mat$panel1
-          mat <- as.matrix(mat[,-1])
-          diag(mat) <- 1
-          mat <- mat[c(single, "Ensemble"),c(single, "Ensemble")]
-          output$delongPvalues <- renderPlot({
-            pheatmap::pheatmap(mat, display_numbers = matrix(ifelse(mat < 0.05, paste(signif(mat,2), "*"), signif(mat, 2)), nrow(mat)), color = colorRampPalette(c("lightblue", rep("white", 19)))(20), cluster_cols = FALSE, cluster_rows = FALSE, legend = FALSE, main = "De Long p-values")})
 
           ## Compuate roc curves
           rocTable <- pred %>%
