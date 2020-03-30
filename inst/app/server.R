@@ -76,6 +76,7 @@ function(input, output, session) {
     ## split demo data into cat and cont vars
     demo <- getDemoData()
     response <- relevel(factor(as.character(demo[, input$responseVar])), ref = input$refVar)
+    print(response)
     demoSplit <- omicsBioAnalytics::splitData(demo, group = input$responseVar, trim = 0.8)
     ## @@@@@@@@@@@@@@@@@@@@@@@ Continuous variable panel @@@@@@@@@@@@@@@@@@@@@@@ ##
     updateRadioButtons(session, "vars",
@@ -398,217 +399,211 @@ function(input, output, session) {
         do.call(tabsetPanel, myTabs)
       })
 
+
       ## Backend
       lapply(names(getOmicsData()),
         function(i) {
-          observeEvent(input[[paste("fdr", i, sep="_")]], {
+          req(input[[paste("fdr", i, sep="_")]])
+          req(input[[paste("comparison", i, sep="_")]])
+          req(input[[paste("deTest", i, sep="_")]])
+          subset_eset <- getOmicsData()[[i]]
+          selectedCoef <- which(levels(response) == sapply(strsplit(input[[paste("comparison", i, sep="_")]], " vs. "), function(i){ i[[2]]}))
+          req(length(selectedCoef) == 1)
 
-            observeEvent(input[[paste("comparison", i, sep="_")]], {
-              req(input[[paste("comparison", i, sep="_")]])
-              observeEvent(input[[paste("deTest", i, sep="_")]], {
-                req(input[[paste("deTest", i, sep="_")]])
-                subset_eset <- getOmicsData()[[i]]
-                selectedCoef <- which(levels(response) == sapply(strsplit(input[[paste("comparison", i, sep="_")]], " vs. "), function(i){ i[[2]]}))
+          design <- model.matrix(~response)
+          top <- generateTopTable(subset_eset, design, coefNumber = selectedCoef, test = input[[paste("deTest", i, sep="_")]])
 
-                design <- model.matrix(~response)
-                top <- generateTopTable(subset_eset, design, coefNumber = selectedCoef, test = input[[paste("deTest", i, sep="_")]])
+          subsetTop <- reactive({
+            top = top %>%
+              mutate(Significant=ifelse(adj.P.Val < input[[paste("fdr", i, sep="_")]],
+                paste("FDR < ", input[[paste("fdr", i, sep="_")]]), "Not Sig"))
+          })
 
-                subsetTop <- reactive({
-                  top = top %>%
-                    mutate(Significant=ifelse(adj.P.Val < input[[paste("fdr", i, sep="_")]],
-                      paste("FDR < ", input[[paste("fdr", i, sep="_")]]), "Not Sig"))
-                })
+          # volcano plot
+          output[[paste("volcanoPlot", i, sep="_")]] <- renderPlotly({
+            options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
+            plot_ly(subsetTop(), x = ~logFC, y = ~sig,
+              key = ~FeatureName, color=~Significant,
+              colors=c("#F8766D", "grey"), marker = list(size=10),
+              type = "scatter", source = paste("volcanoPlot", i, sep="_")) %>%
+              layout(legend = list(orientation = 'h', xanchor="center", x=0.5, y=1.1),
+                xaxis = list(title = "log<sub>2</sub>FC"),
+                yaxis = list(title = "-log<sub>10</sub>(P-value)"))
+          })
 
-                # volcano plot
-                output[[paste("volcanoPlot", i, sep="_")]] <- renderPlotly({
-                  options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
-                  plot_ly(subsetTop(), x = ~logFC, y = ~sig,
-                    key = ~FeatureName, color=~Significant,
-                    colors=c("#F8766D", "grey"), marker = list(size=10),
-                    type = "scatter", source = paste("volcanoPlot", i, sep="_")) %>%
-                    layout(legend = list(orientation = 'h', xanchor="center", x=0.5, y=1.1),
-                      xaxis = list(title = "log<sub>2</sub>FC"),
-                      yaxis = list(title = "-log<sub>10</sub>(P-value)"))
-                })
+          # selected feature on volcano plot
+          output[[paste("selection", i, sep="_")]] <- renderPrint({
+            s <- event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))
+            if (length(s) == 0) {
+              "Click on a point on the volcano plot"
+            } else {
+              cat(paste("You selected:", s$key, "\n\n"));
+              cat(paste("Fold-change = ", signif(s$x, 3), "\n P-value = ", signif(10^-s$y, 3)))
+            }
+          })
 
-                # selected feature on volcano plot
-                output[[paste("selection", i, sep="_")]] <- renderPrint({
-                  s <- event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))
-                  if (length(s) == 0) {
-                    "Click on a point on the volcano plot"
-                  } else {
-                    cat(paste("You selected:", s$key, "\n\n"));
-                    cat(paste("Fold-change = ", signif(s$x, 3), "\n P-value = ", signif(10^-s$y, 3)))
-                  }
-                })
+          # feature plot
+          output[[paste("boxplot", i, sep="_")]] <- renderPlotly({
+            s <- event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))
+            if (length(s)) {
+              var <- unlist(s[["key"]])
+              options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
+              ggplotly(data.frame(x = response, y = subset_eset[, var]) %>%
+                  ggplot(aes(x = x, y = y, fill = x)) +
+                  geom_boxplot() +
+                  xlab(input$responseVar) +
+                  ylab(var) +
+                  ggtitle(paste(var, " vs. ", input$responseVar)) +
+                  theme_classic() +
+                  theme(legend.position = "none") +
+                  scale_fill_manual(values=groupColors[1:length(unique(response))])
+              )
+            } else {
+              plotly_empty()
+            }
+          })
 
-                # feature plot
-                output[[paste("boxplot", i, sep="_")]] <- renderPlotly({
-                  s <- event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))
-                  if (length(s)) {
-                    var <- unlist(s[["key"]])
-                    options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
-                    ggplotly(data.frame(x = response, y = subset_eset[, var]) %>%
-                        ggplot(aes(x = x, y = y, fill = x)) +
-                        geom_boxplot() +
-                        xlab(input$responseVar) +
-                        ylab(var) +
-                        ggtitle(paste(var, " vs. ", input$responseVar)) +
-                        theme_classic() +
-                        theme(legend.position = "none") +
-                        scale_fill_manual(values=groupColors[1:length(unique(response))])
-                    )
-                  } else {
-                    plotly_empty()
-                  }
-                })
+          # statement
+          output[[paste("statement", i, sep="_")]] <- renderText({
+            paste("There are ", sum(top$adj.P.Val < input[[paste("fdr", i, sep="_")]]), "significant ", i, ". ",
+              sum(top$logFC > 0 & top$adj.P.Val < input[[paste("fdr", i, sep="_")]]), i, " were up-regulated in subjects whereas",
+              sum(top$logFC < 0 & top$adj.P.Val < input[[paste("fdr", i, sep="_")]]), i, " were down-regulated.")
+          })
 
-                # statement
-                output[[paste("statement", i, sep="_")]] <- renderText({
-                  paste("There are ", sum(top$adj.P.Val < input[[paste("fdr", i, sep="_")]]), "significant ", i, ". ",
-                    sum(top$logFC > 0 & top$adj.P.Val < input[[paste("fdr", i, sep="_")]]), i, " were up-regulated in subjects whereas",
-                    sum(top$logFC < 0 & top$adj.P.Val < input[[paste("fdr", i, sep="_")]]), i, " were down-regulated.")
-                })
+          print(dplyr::filter(subsetTop(), Significant != "Not Sig") %>%
+              mutate(logFC = signif(logFC, 2),
+                P.Value = signif(P.Value, 2),
+                adj.P.Val = signif(adj.P.Val, 2),
+                sig = signif(sig, 2)) %>%
+              dplyr::select(FeatureName, logFC, P.Value, adj.P.Val), options = list(lengthChange = FALSE))
+          # table of significant featuers
+          output[[paste("sig", i, sep="_")]] <-  DT::renderDataTable( dplyr::filter(subsetTop(), Significant != "Not Sig") %>%
+              mutate(logFC = signif(logFC, 2),
+                P.Value = signif(P.Value, 2),
+                adj.P.Val = signif(adj.P.Val, 2),
+                sig = signif(sig, 2)) %>%
+              dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
 
-                print(dplyr::filter(subsetTop(), Significant != "Not Sig") %>%
-                    mutate(logFC = signif(logFC, 2),
-                      P.Value = signif(P.Value, 2),
-                      adj.P.Val = signif(adj.P.Val, 2),
-                      sig = signif(sig, 2)) %>%
-                    dplyr::select(FeatureName, logFC, P.Value, adj.P.Val), options = list(lengthChange = FALSE))
-                # table of significant featuers
-                output[[paste("sig", i, sep="_")]] <-  DT::renderDataTable( dplyr::filter(subsetTop(), Significant != "Not Sig") %>%
-                    mutate(logFC = signif(logFC, 2),
-                      P.Value = signif(P.Value, 2),
-                      adj.P.Val = signif(adj.P.Val, 2),
-                      sig = signif(sig, 2)) %>%
-                    dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
-
-                ## Differential pathway analysis
-                if(length(intersect(colnames(subset_eset), unlist(kegg)) > 5) &
-                    length(intersect(colnames(subset_eset), unlist(wikipathways)) > 5)){
-                  ## KEGG pathways
-                  indKegg <- lapply(kegg, function(pathway){
-                    which(colnames(subset_eset) %in% pathway)
-                  })
-                  indKegg <- indKegg[sapply(indKegg, length) > 5]
-                  gsetKegg <- camera(t(subset_eset), indKegg, design, contrast = 2)
-                  gsetKegg$adj.P.Val <- p.adjust(gsetKegg$PValue, "BH")
-                  ## Wikipathways
-                  indWiki <- lapply(wikipathways, function(pathway){
-                    which(colnames(subset_eset) %in% pathway)
-                  })
-                  indWiki <- indWiki[sapply(indWiki, length) > 5]
-                  gsetWiki <- camera(t(subset_eset), indWiki, design, contrast = 2)
-                  gsetWiki$adj.P.Val <- p.adjust(gsetWiki$PValue, "BH")
-                } else {
-                  gsetKegg <- gsetWiki <- NULL
-                }
-
-
-                output[[paste("gsetPlot", i, sep="_")]] <- renderPlot({
-                  if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
-                    par(mar=c(4,4,1,1))
-                    par(mfrow = c(1, 2))
-                    col <- rep("grey", length(gsetKegg$adj.P.Val))
-                    col[gsetKegg$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetKegg$Direction == "Up"] <- "tomato"
-                    col[gsetKegg$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetKegg$Direction == "Down"] <- "skyblue"
-                    plot(gsetKegg$adj.P.Val, log="x", col = col, pch = 19,
-                      ylim = c(0,1), main = "KEGG pathways",
-                      ylab="FDR", xlab = "Number of pathways")
-                    legend("topleft", c("up-regulated", "down-regulated", "not signficant"),
-                      col = c("tomato","skyblue","grey"), pch = 19, bty = "n")
-                    col <- rep("grey", length(gsetWiki$adj.P.Val))
-                    col[gsetWiki$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetWiki$Direction == "Up"] <- "tomato"
-                    col[gsetWiki$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetWiki$Direction == "Down"] <- "skyblue"
-                    plot(gsetWiki$adj.P.Val, log="x", col = col, pch = 19,
-                      ylim = c(0,1), main = "WikiPathways",
-                      ylab="FDR", xlab = "Number of pathways")
-                    legend("topleft", c("up-regulated", "down-regulated", "not signficant"),
-                      col = c("tomato","skyblue","grey"), pch = 19, bty = "n")
-                  } else {
-                    ""
-                  }
-                })
-
-                output[[paste("sigKegg", i, sep="_")]] = DT::renderDataTable(
-                  if(!is.null(gsetKegg)){
-                    gsetKegg %>% mutate(Pathway = rownames(.)) %>%
-                      filter(adj.P.Val < input[[paste("fdr", i, sep="_")]]) %>%
-                      mutate(PValue = signif(PValue, 3), adj.P.Val = signif(adj.P.Val, 3)) %>%
-                      dplyr::select(Pathway, NGenes, Direction, PValue, adj.P.Val)
-                  } else {
-                    ""
-                  }, options = list(lengthChange = FALSE))
-                output[[paste("sigWiki", i, sep="_")]] = DT::renderDataTable(
-                  if(!is.null(gsetWiki)){
-                    gsetWiki %>% mutate(Pathway = rownames(.)) %>%
-                      filter(adj.P.Val < input[[paste("fdr", i, sep="_")]]) %>%
-                      mutate(PValue = signif(PValue, 3), adj.P.Val = signif(adj.P.Val, 3)) %>%
-                      dplyr::select(Pathway, NGenes, Direction, PValue, adj.P.Val)
-                  } else {
-                    ""
-                  }, options = list(lengthChange = FALSE))
-
-                int = function (s1, s2) {
-                  length(intersect(s1, s2))/length(union(s1, s2))
-                }
-                output[[paste("upregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
-                  if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
-                    gset <- rbind(gsetKegg, gsetWiki)
-                    pathway.genes <- lapply(append(indKegg, indWiki), function(ind){
-                      colnames(subset_eset)[ind]
-                    })
-                    ## up-regulated
-                    up.pathways <- gset[gset$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gset$Direction == "Up", , drop=FALSE]
-                    if(nrow(up.pathways) > 1){
-                      ref <- pathway.genes[rownames(up.pathways)]
-                      links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
-                        dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
-                        dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
-                          ref[as.character(to)], omicsBioAnalytics::jaccard)))
-                      edges <- links[links$int > 0.1, ]
-                      nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
-                      nodes$label <- nodes$id
-                      nodes$color <- "salmon"
-                      visNetwork::visNetwork(nodes, edges)
-                    } else {
-                      return(NULL)
-                    }
-                  } else {
-                    return(NULL)
-                  }
-                })
-                output[[paste("downregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
-                  if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
-                    gset <- rbind(gsetKegg, gsetWiki)
-                    pathway.genes <- lapply(append(indKegg, indWiki), function(ind){
-                      colnames(subset_eset)[ind]
-                    })
-                    ## down-regulated
-                    down.pathways <- gset[gset$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gset$Direction == "Down", , drop=FALSE]
-                    if(nrow(down.pathways) > 1){
-                      ref <- pathway.genes[rownames(down.pathways)]
-                      links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
-                        dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
-                        dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
-                          ref[as.character(to)], omicsBioAnalytics::jaccard)))
-                      edges <- links[links$int > 0.1, ]
-                      nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
-                      nodes$label <- nodes$id
-                      nodes$color <- "skyblue"
-                      visNetwork::visNetwork(nodes, edges)
-                    } else {
-                      return(NULL)
-                    }
-                  } else {
-                    return(NULL)
-                  }
-                })
-              })
-
-
+          ## Differential pathway analysis
+          if(length(intersect(colnames(subset_eset), unlist(kegg)) > 5) &
+              length(intersect(colnames(subset_eset), unlist(wikipathways)) > 5)){
+            ## KEGG pathways
+            indKegg <- lapply(kegg, function(pathway){
+              which(colnames(subset_eset) %in% pathway)
             })
+            indKegg <- indKegg[sapply(indKegg, length) > 5]
+            gsetKegg <- camera(t(subset_eset), indKegg, design, contrast = 2)
+            gsetKegg$adj.P.Val <- p.adjust(gsetKegg$PValue, "BH")
+            ## Wikipathways
+            indWiki <- lapply(wikipathways, function(pathway){
+              which(colnames(subset_eset) %in% pathway)
+            })
+            indWiki <- indWiki[sapply(indWiki, length) > 5]
+            gsetWiki <- camera(t(subset_eset), indWiki, design, contrast = 2)
+            gsetWiki$adj.P.Val <- p.adjust(gsetWiki$PValue, "BH")
+          } else {
+            gsetKegg <- gsetWiki <- NULL
+          }
+
+
+          output[[paste("gsetPlot", i, sep="_")]] <- renderPlot({
+            if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
+              par(mar=c(4,4,1,1))
+              par(mfrow = c(1, 2))
+              col <- rep("grey", length(gsetKegg$adj.P.Val))
+              col[gsetKegg$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetKegg$Direction == "Up"] <- "tomato"
+              col[gsetKegg$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetKegg$Direction == "Down"] <- "skyblue"
+              plot(gsetKegg$adj.P.Val, log="x", col = col, pch = 19,
+                ylim = c(0,1), main = "KEGG pathways",
+                ylab="FDR", xlab = "Number of pathways")
+              legend("topleft", c("up-regulated", "down-regulated", "not signficant"),
+                col = c("tomato","skyblue","grey"), pch = 19, bty = "n")
+              col <- rep("grey", length(gsetWiki$adj.P.Val))
+              col[gsetWiki$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetWiki$Direction == "Up"] <- "tomato"
+              col[gsetWiki$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gsetWiki$Direction == "Down"] <- "skyblue"
+              plot(gsetWiki$adj.P.Val, log="x", col = col, pch = 19,
+                ylim = c(0,1), main = "WikiPathways",
+                ylab="FDR", xlab = "Number of pathways")
+              legend("topleft", c("up-regulated", "down-regulated", "not signficant"),
+                col = c("tomato","skyblue","grey"), pch = 19, bty = "n")
+            } else {
+              ""
+            }
+          })
+
+          output[[paste("sigKegg", i, sep="_")]] = DT::renderDataTable(
+            if(!is.null(gsetKegg)){
+              gsetKegg %>% mutate(Pathway = rownames(.)) %>%
+                filter(adj.P.Val < input[[paste("fdr", i, sep="_")]]) %>%
+                mutate(PValue = signif(PValue, 3), adj.P.Val = signif(adj.P.Val, 3)) %>%
+                dplyr::select(Pathway, NGenes, Direction, PValue, adj.P.Val)
+            } else {
+              ""
+            }, options = list(lengthChange = FALSE))
+          output[[paste("sigWiki", i, sep="_")]] = DT::renderDataTable(
+            if(!is.null(gsetWiki)){
+              gsetWiki %>% mutate(Pathway = rownames(.)) %>%
+                filter(adj.P.Val < input[[paste("fdr", i, sep="_")]]) %>%
+                mutate(PValue = signif(PValue, 3), adj.P.Val = signif(adj.P.Val, 3)) %>%
+                dplyr::select(Pathway, NGenes, Direction, PValue, adj.P.Val)
+            } else {
+              ""
+            }, options = list(lengthChange = FALSE))
+
+          int = function (s1, s2) {
+            length(intersect(s1, s2))/length(union(s1, s2))
+          }
+          output[[paste("upregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
+            if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
+              gset <- rbind(gsetKegg, gsetWiki)
+              pathway.genes <- lapply(append(indKegg, indWiki), function(ind){
+                colnames(subset_eset)[ind]
+              })
+              ## up-regulated
+              up.pathways <- gset[gset$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gset$Direction == "Up", , drop=FALSE]
+              if(nrow(up.pathways) > 1){
+                ref <- pathway.genes[rownames(up.pathways)]
+                links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
+                  dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
+                  dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
+                    ref[as.character(to)], omicsBioAnalytics::jaccard)))
+                edges <- links[links$int > 0.1, ]
+                nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
+                nodes$label <- nodes$id
+                nodes$color <- "salmon"
+                visNetwork::visNetwork(nodes, edges)
+              } else {
+                return(NULL)
+              }
+            } else {
+              return(NULL)
+            }
+          })
+          output[[paste("downregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
+            if(all(c(!is.null(gsetKegg), !is.null(gsetWiki)))){
+              gset <- rbind(gsetKegg, gsetWiki)
+              pathway.genes <- lapply(append(indKegg, indWiki), function(ind){
+                colnames(subset_eset)[ind]
+              })
+              ## down-regulated
+              down.pathways <- gset[gset$adj.P.Val < input[[paste("fdr", i, sep="_")]] & gset$Direction == "Down", , drop=FALSE]
+              if(nrow(down.pathways) > 1){
+                ref <- pathway.genes[rownames(down.pathways)]
+                links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
+                  dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
+                  dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
+                    ref[as.character(to)], omicsBioAnalytics::jaccard)))
+                edges <- links[links$int > 0.1, ]
+                nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
+                nodes$label <- nodes$id
+                nodes$color <- "skyblue"
+                visNetwork::visNetwork(nodes, edges)
+              } else {
+                return(NULL)
+              }
+            } else {
+              return(NULL)
+            }
           })
         }
       )})
