@@ -25,10 +25,8 @@ dataUpload <- function() {
              style="color: #fff; background-color: #337ab7; border-color: #2e6da4")
          ),
          column(6,
-           actionButton("heartFailure", "Heart Failure", icon = icon("heart"),
-             style="color: #fff; background-color: #337ab7; border-color: #2e6da4"),
-           actionButton("covid19", "COVID-19", icon = icon("chart-line"),
-             style="color: #fff; background-color: #337ab7; border-color: #2e6da4")
+           customDownloadButton("heartFailure", label = "Heart Failure", icon = icon("heart")),
+           customDownloadButton("covid19", label = "COVID-19", icon = icon("chart-line"))
          )),
     fluidRow(
       column(12,
@@ -46,4 +44,11 @@ dataUpload <- function() {
     #       style="color: #fff; background-color: #337ab7; border-color: #2e6da4")
     #     ))
   )
+}
+
+
+#' https://stackoverflow.com/questions/49350509/adding-removing-icon-in-downloadbutton-and-fileinput
+customDownloadButton <- function(outputId, label = "Download", icon = icon("download")){
+  tags$a(id = outputId, class = "btn btn-default shiny-download-link", href = "",
+    target = "_blank", download = NA, icon, label)
 }
