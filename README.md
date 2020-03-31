@@ -64,6 +64,20 @@ omicsBioAnalytics::startApp()
 
 ## Sample datasets used for this app
 
+### COVID-19 case study
+
+#### How to use?
+
+``` r
+library(omicsBioAnalytics);
+data(covid19)
+```
+
+#### How to generate?
+
+[steps to reproduce the heart failure
+data](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/covid19/covid19.md)
+
 ### Heart Failure case study
 
 #### How to use?
@@ -76,7 +90,7 @@ data(heartFailure)
 #### How to generate?
 
 [steps to reproduce the heart failure
-data](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/caseStudy/caseStudyData.md)
+data](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/heartFailure/heartFailure.md)
 
 ### Pathway datasets
 
