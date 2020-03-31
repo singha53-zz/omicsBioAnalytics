@@ -21,6 +21,8 @@ suppressPackageStartupMessages(library("glmnet"));
 
 ## Import data
 data("pathwayDB")
+data("heartFailure")
+data("covid19")
 
 ## pathways to use
 kegg <- subset(pathwayDB, DB == "KEGG_2019_Human")
