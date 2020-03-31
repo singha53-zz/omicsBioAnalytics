@@ -1,4 +1,5 @@
 
+
 function(input, output, session) {
 
   # Demographics data upload
@@ -44,6 +45,48 @@ function(input, output, session) {
     return(returnedValue)
   })
   outputOptions(output, "analysisRan", suspendWhenHidden = FALSE)
+
+  # if user wants to analyze the example heart failure data
+  output$heartFailure <- downloadHandler(
+    filename = "heartFailureDatasets_omicsBioAnalytics.zip",
+    content = function(file){
+      hfDatasets <- heartFailure$omicsData
+      hfDatasets$demo <- heartFailure$demo
+      #go to a temp dir to avoid permission issues
+      # owd <- setwd(tempdir())
+      # on.exit(setwd(owd))
+      files <- NULL;
+
+      #loop through the sheets
+      for (i in 1:length(hfDatasets)){
+        #write each sheet to a csv file, save the name
+        fileName <- paste0(names(hfDatasets)[i], ".csv")
+        write.table(hfDatasets[[i]], fileName, sep = ',')
+        files <- c(fileName,files)
+      }
+      #create the zip file
+      zip(file,files)
+    }
+  )
+
+  # if user wants to analyze the example COVID-19 data
+  output$covid19 <- downloadHandler(
+    filename = "COVID19Datasets_omicsBioAnalytics.zip",
+    content = function(file){
+      files <- NULL;
+
+      #loop through the sheets
+      for (i in 1:length(covid19)){
+        #write each sheet to a csv file, save the name
+        fileName <- paste0(names(covid19)[i], ".csv")
+        write.table(covid19[[i]], fileName, sep = ',')
+        files <- c(fileName,files)
+      }
+      #create the zip file
+      zip(file,files)
+    }
+  )
+
 
   # Run analysis
   observeEvent(input$run, {
