@@ -1,24 +1,3 @@
-## set colors for binary groups
-lvl1Color <- "#66C2A5"
-lvl2Color <- "#FC8D62"
-
-groupColors <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-
-dynamodbTableName <- Sys.getenv("TABLE_NAME")
-S3Bucket <- Sys.getenv("S3BUCKET")
-previousWorkloads <- sapply(get_bucket(bucket = S3Bucket), function(i){
-  strsplit(i$Key, "-")[[1]][1]
-})
-flag <- TRUE
-while(flag){
-  userID <- paste(sample(0:9, 7), collapse = "")
-  if(!(userID %in% previousWorkloads)){
-    flag <- FALSE
-  }
-}
-
-# test upload to dynamoDB
-# omicsBioAnalytics::put_item(dynamodbTableName, list(id = userID, phoneNumber= jsonlite::toJSON("50 subjects")))
 
 function(input, output, session) {
 
@@ -640,7 +619,8 @@ function(input, output, session) {
     ## Classification performances
     observeEvent(input$build, {
       errMsg <- reactive({validate(
-        need(length(input$selectedGroups) != 2, "Please only select two groups."),
+        need(length(input$selectedGroups) > 1, "Please only select two groups."),
+        need(length(input$selectedGroups) < 3, "Please only select two groups."),
         need(length(input$checkGroup_single) > 0, "Please select at least one dataset to build a classifier."),
         need(length(input$checkGroup_ensemble) > 0, "Please select at least one dataset to build a ensemble classifier.")
       )})
@@ -963,7 +943,7 @@ function(input, output, session) {
             ellipseBy = "Group",
             graphType = "Scatter3D",
             colorScheme = "Set2",
-            colors = c(lvl1Color, lvl2Color),
+            colors = groupColors[1:nlevels(subset_response)],
             xAxisTitle = paste0("PC1 (", round(100*summary(pc)$importance["Proportion of Variance","PC1"], 0), "%)"),
             yAxisTitle = paste0("PC2 (", round(100*summary(pc)$importance["Proportion of Variance","PC2"], 0), "%)"),
             zAxisTitle = paste0("PC3 (", round(100*summary(pc)$importance["Proportion of Variance","PC3"], 0), "%)"))
@@ -973,7 +953,7 @@ function(input, output, session) {
             varAnnot  = grouping,
             colorBy   = "Group",
             colorScheme = "Set2",
-            colors = c(lvl1Color, lvl2Color),
+            colors = groupColors[1:nlevels(subset_response)],
             graphType="ScatterBubble2D",
             size=list(1)
           )
@@ -991,7 +971,7 @@ function(input, output, session) {
             graphType="Boxplot",
             jitter=TRUE,
             colorScheme = "Set2",
-            colors = c(lvl1Color, lvl2Color),
+            colors = groupColors[1:nlevels(subset_response)],
             legendBox=FALSE,
             plotByVariable=TRUE,
             showBoxplotOriginalData=TRUE,
@@ -1020,7 +1000,7 @@ function(input, output, session) {
           colorBy   = "Group",
           ellipseBy = "Group",
           colorScheme = "Set2",
-          colors = c(lvl1Color, lvl2Color),
+          colors = groupColors[1:nlevels(subset_response)],
           graphType = "Scatter3D",
           xAxisTitle = paste0("PC1 (", round(100*summary(pc)$importance["Proportion of Variance","PC1"], 0), "%)"),
           yAxisTitle = paste0("PC2 (", round(100*summary(pc)$importance["Proportion of Variance","PC2"], 0), "%)"),
@@ -1109,8 +1089,8 @@ function(input, output, session) {
           data=y,
           smpAnnot=x,
           varAnnot=z,
-          colors = c(lvl1Color, lvl2Color),
-          colorKey=list(dataset=barColors[names(ensemblePanel)], Group=c(lvl1Color, lvl2Color)),
+          colors = groupColors[1:nlevels(subset_response)],
+          colorKey=list(dataset=barColors[names(ensemblePanel)], Group=groupColors[1:nlevels(subset_response)]),
           colorSpectrum=list("magenta", "blue", "black", "red", "gold"),
           colorSpectrumZeroValue=0,
           graphType="Heatmap",
