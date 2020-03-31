@@ -41,18 +41,19 @@ Sys.setenv("S3BUCKET" = readRDS("S3BUCKET.rds"),
 ## color paletter for groups
 groupColors <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-dynamodbTableName <- Sys.getenv("TABLE_NAME")
-S3Bucket <- Sys.getenv("S3BUCKET")
-previousWorkloads <- sapply(get_bucket(bucket = S3Bucket), function(i){
-  strsplit(i$Key, "-")[[1]][1]
-})
-flag <- TRUE
-while(flag){
-  userID <- paste(sample(0:9, 7), collapse = "")
-  if(!(userID %in% previousWorkloads)){
-    flag <- FALSE
+# If Alexa Skill is setup already then change the flag below to TRUE
+alexaSkillExists <- FALSE
+if(alexaSkillExists){
+  dynamodbTableName <- Sys.getenv("TABLE_NAME")
+  S3Bucket <- Sys.getenv("S3BUCKET")
+  previousWorkloads <- sapply(get_bucket(bucket = S3Bucket), function(i){
+    strsplit(i$Key, "-")[[1]][1]
+  })
+  flag <- TRUE
+  while(flag){
+    userID <- paste(sample(0:9, 7), collapse = "")
+    if(!(userID %in% previousWorkloads)){
+      flag <- FALSE
+    }
   }
 }
-
-# test upload to dynamoDB
-# omicsBioAnalytics::put_item(dynamodbTableName, list(id = userID, phoneNumber= jsonlite::toJSON("50 subjects")))
