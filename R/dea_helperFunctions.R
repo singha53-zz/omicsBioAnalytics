@@ -14,7 +14,7 @@ generateTopTable = function(eset, design, coefNumber, test){
       sig = -log10(P.Value)) %>%
       arrange(P.Value)
   } else if (test == "vlimma") {
-    v <- voom(2^t(eset), design, plot=TRUE)
+    v <- voom(t(eset), design, plot=FALSE)
     fit <- lmFit(v, design)
     fit <- eBayes(fit)
     top <- topTable(fit, coef = coefNumber, n = nrow(fit), adjust.method = "BH")

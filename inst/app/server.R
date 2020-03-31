@@ -1,24 +1,4 @@
-## set colors for binary groups
-lvl1Color <- "#66C2A5"
-lvl2Color <- "#FC8D62"
 
-groupColors <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-
-dynamodbTableName <- Sys.getenv("TABLE_NAME")
-S3Bucket <- Sys.getenv("S3BUCKET")
-previousWorkloads <- sapply(get_bucket(bucket = S3Bucket), function(i){
-  strsplit(i$Key, "-")[[1]][1]
-})
-flag <- TRUE
-while(flag){
-  userID <- paste(sample(0:9, 7), collapse = "")
-  if(!(userID %in% previousWorkloads)){
-    flag <- FALSE
-  }
-}
-
-# test upload to dynamoDB
-# omicsBioAnalytics::put_item(dynamodbTableName, list(id = userID, phoneNumber= jsonlite::toJSON("50 subjects")))
 
 function(input, output, session) {
 
@@ -65,6 +45,48 @@ function(input, output, session) {
     return(returnedValue)
   })
   outputOptions(output, "analysisRan", suspendWhenHidden = FALSE)
+
+  # if user wants to analyze the example heart failure data
+  output$heartFailure <- downloadHandler(
+    filename = "heartFailureDatasets_omicsBioAnalytics.zip",
+    content = function(file){
+      hfDatasets <- heartFailure$omicsData
+      hfDatasets$demo <- heartFailure$demo
+      #go to a temp dir to avoid permission issues
+      # owd <- setwd(tempdir())
+      # on.exit(setwd(owd))
+      files <- NULL;
+
+      #loop through the sheets
+      for (i in 1:length(hfDatasets)){
+        #write each sheet to a csv file, save the name
+        fileName <- paste0(names(hfDatasets)[i], ".csv")
+        write.table(hfDatasets[[i]], fileName, sep = ',')
+        files <- c(fileName,files)
+      }
+      #create the zip file
+      zip(file,files)
+    }
+  )
+
+  # if user wants to analyze the example COVID-19 data
+  output$covid19 <- downloadHandler(
+    filename = "COVID19Datasets_omicsBioAnalytics.zip",
+    content = function(file){
+      files <- NULL;
+
+      #loop through the sheets
+      for (i in 1:length(covid19)){
+        #write each sheet to a csv file, save the name
+        fileName <- paste0(names(covid19)[i], ".csv")
+        write.table(covid19[[i]], fileName, sep = ',')
+        files <- c(fileName,files)
+      }
+      #create the zip file
+      zip(file,files)
+    }
+  )
+
 
   # Run analysis
   observeEvent(input$run, {
@@ -640,7 +662,8 @@ function(input, output, session) {
     ## Classification performances
     observeEvent(input$build, {
       errMsg <- reactive({validate(
-        need(length(input$selectedGroups) != 2, "Please only select two groups."),
+        need(length(input$selectedGroups) > 1, "Please only select two groups."),
+        need(length(input$selectedGroups) < 3, "Please only select two groups."),
         need(length(input$checkGroup_single) > 0, "Please select at least one dataset to build a classifier."),
         need(length(input$checkGroup_ensemble) > 0, "Please select at least one dataset to build a ensemble classifier.")
       )})
@@ -963,7 +986,7 @@ function(input, output, session) {
             ellipseBy = "Group",
             graphType = "Scatter3D",
             colorScheme = "Set2",
-            colors = c(lvl1Color, lvl2Color),
+            colors = groupColors[1:nlevels(subset_response)],
             xAxisTitle = paste0("PC1 (", round(100*summary(pc)$importance["Proportion of Variance","PC1"], 0), "%)"),
             yAxisTitle = paste0("PC2 (", round(100*summary(pc)$importance["Proportion of Variance","PC2"], 0), "%)"),
             zAxisTitle = paste0("PC3 (", round(100*summary(pc)$importance["Proportion of Variance","PC3"], 0), "%)"))
@@ -973,7 +996,7 @@ function(input, output, session) {
             varAnnot  = grouping,
             colorBy   = "Group",
             colorScheme = "Set2",
-            colors = c(lvl1Color, lvl2Color),
+            colors = groupColors[1:nlevels(subset_response)],
             graphType="ScatterBubble2D",
             size=list(1)
           )
@@ -991,7 +1014,7 @@ function(input, output, session) {
             graphType="Boxplot",
             jitter=TRUE,
             colorScheme = "Set2",
-            colors = c(lvl1Color, lvl2Color),
+            colors = groupColors[1:nlevels(subset_response)],
             legendBox=FALSE,
             plotByVariable=TRUE,
             showBoxplotOriginalData=TRUE,
@@ -1020,7 +1043,7 @@ function(input, output, session) {
           colorBy   = "Group",
           ellipseBy = "Group",
           colorScheme = "Set2",
-          colors = c(lvl1Color, lvl2Color),
+          colors = groupColors[1:nlevels(subset_response)],
           graphType = "Scatter3D",
           xAxisTitle = paste0("PC1 (", round(100*summary(pc)$importance["Proportion of Variance","PC1"], 0), "%)"),
           yAxisTitle = paste0("PC2 (", round(100*summary(pc)$importance["Proportion of Variance","PC2"], 0), "%)"),
@@ -1109,8 +1132,8 @@ function(input, output, session) {
           data=y,
           smpAnnot=x,
           varAnnot=z,
-          colors = c(lvl1Color, lvl2Color),
-          colorKey=list(dataset=barColors[names(ensemblePanel)], Group=c(lvl1Color, lvl2Color)),
+          colors = groupColors[1:nlevels(subset_response)],
+          colorKey=list(dataset=barColors[names(ensemblePanel)], Group=groupColors[1:nlevels(subset_response)]),
           colorSpectrum=list("magenta", "blue", "black", "red", "gold"),
           colorSpectrumZeroValue=0,
           graphType="Heatmap",

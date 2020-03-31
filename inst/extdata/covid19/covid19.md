@@ -36,17 +36,38 @@ all(rownames(phenoData) == colnames(mrna))
 ``` r
 demo <- setNames(phenoData[, c("cell type:ch1", "time point:ch1", "treatment:ch1")], c("cell", "time", "treatment")) %>% 
   mutate(group = paste(time, treatment, sep="_"))
-
-## save covid19 datasets
-covid19 <- list(
-  demo = demo,
-  mrna = t(mrna)
-)
 ```
+
+## filter genes with zero variance and each sample must have a count of at least 5
+
+### before filtering
+
+``` r
+nrow(mrna);
+```
+
+    ## [1] 23710
+
+### after filtering
+
+``` r
+mrna <- mrna[apply(mrna, 1, sd) !=0, ]
+mrna[mrna < 6] <- NA
+mrna <- t(na.omit(mrna))
+dim(mrna);
+```
+
+    ## [1]    20 10563
 
 ## Save package data
 
 ``` r
+## save covid19 datasets
+covid19 <- list(
+  demo = demo,
+  mrna = mrna
+)
+
 usethis::use_data(covid19, overwrite = TRUE)
 ```
 
