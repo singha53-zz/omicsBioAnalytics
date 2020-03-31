@@ -1,0 +1,52 @@
+---
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = FALSE, warning = FALSE, message = FALSE)
+
+library(tidyverse); library(knitr); library(GEOquery);
+```
+
+# Steps to reproduce the COVID-19 case study data
+## 1) download demographics using the GEOQuery Rpackage
+
+```{r}
+g <- getGEO("GSE147507")
+names(g)
+e1 <- g[["GSE147507_series_matrix.txt.gz"]]
+
+## assay characteristics
+phenoData <- pData(e1)
+dim(phenoData)
+rownames(phenoData) <- make.names(sapply(strsplit(as.character(phenoData$description), "_"), function(i){i[[1]]}))
+
+## transcriptomics
+mrna <- as.matrix(read.csv(here::here("inst", "extdata", "covid19", "GSE147507_RawReadCounts.tsv"), row.names = 1, sep = "\t"))
+colnames(mrna) <- gsub("_", ".", colnames(mrna))
+
+## check if both datasets are in the same order
+all(rownames(phenoData) == colnames(mrna))
+
+demo <- setNames(phenoData[, c("cell type:ch1", "time point:ch1", "treatment:ch1")], c("cell", "time", "treatment")) %>% 
+  mutate(group = paste(time, treatment, sep="_"))
+
+## save covid19 datasets
+covid19 <- list(
+  demo = demo,
+  mrna = t(mrna)
+)
+```
+
+## Save package data
+
+```{r}
+usethis::use_data(covid19, overwrite = TRUE)
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
