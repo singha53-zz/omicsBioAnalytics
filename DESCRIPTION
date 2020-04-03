@@ -30,7 +30,8 @@ Imports:
  glmnet (>= 2.0-18),
  pROC (>= 1.15.3),
  UpSetR (>= 1.4.0),
- sortable (>= 0.4.2)
+ sortable (>= 0.4.2),
+ ggrepel (>= 0.8.1)
 Suggests: 
  testthat (>= 2.1.0)
 License: MIT
