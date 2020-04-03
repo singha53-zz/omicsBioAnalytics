@@ -9,8 +9,8 @@ Description: Users can upload multiple omics data and perform various bioinforma
     biomarker discovery analysis and manuscript writing.
 Depends: R (>= 3.5.0)
 Imports:
- shinyjs,
- shinydashboard (>= 0.6.1),
+ shinyjs (>= 1.1),
+ shinydashboard (>= 0.7.1),
  shinyBS (>= 0.61),
  dplyr (>= 0.7.1),
  tidyr (>= 0.8.3),
