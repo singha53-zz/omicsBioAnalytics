@@ -103,7 +103,7 @@ function(input, output, session) {
     demoSplit <- omicsBioAnalytics::splitData(demo, group = input$responseVar, trim = 0.8)
     ## @@@@@@@@@@@@@@@@@@@@@@@ Continuous variable panel @@@@@@@@@@@@@@@@@@@@@@@ ##
     updateRadioButtons(session, "vars",
-      label = "Demographic variable:",
+      label = "Choose from one of the following variables:",
       choices = colnames(demoSplit$data.cont),
       selected = colnames(demoSplit$data.cont)[1], inline = TRUE
     )
@@ -254,7 +254,7 @@ function(input, output, session) {
     })
     ## @@@@@@@@@@@@@@@@@@@@@@@ Categorical variable panel @@@@@@@@@@@@@@@@@@@@@@@ ##
     updateRadioButtons(session, "catVar",
-      label = "Demographic variable:",
+      label = "Choose from one of the following variables:",
       choices = setdiff(colnames(demoSplit$data.cat), input$responseVar),
       selected = setdiff(colnames(demoSplit$data.cat), input$responseVar)[1], inline = TRUE
     )
@@ -316,7 +316,7 @@ function(input, output, session) {
           ),
             column(
               8,
-              h3("Which clinical variables are associated with major sources of variation in the expression data?", align = "center"),
+              h3("Which metadata variables are associated with major sources of variation in the expression data?", align = "center"),
               plotly::plotlyOutput(paste("pcClinVarPlot", i, sep="_"), width = "100%")
             ))
         )
@@ -654,7 +654,7 @@ function(input, output, session) {
       selected = names(getOmicsData())
     )
     updateCheckboxGroupInput(session, "selectedGroups",
-      label = "Select two groups to compare (required):",
+      label = paste0("Select two groups from the ", input$responseVar, " response variable to compare (required):"),
       choices = levels(response),
       selected = levels(response)[1:2],
       inline = TRUE
