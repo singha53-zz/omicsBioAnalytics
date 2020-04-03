@@ -92,11 +92,15 @@ function(input, output, session) {
 
   # Run analysis
   observeEvent(input$run, {
+    print("number of levels")
+    print(getDemoData()[, input$responseVar])
+    print(length(unique(getDemoData()[, input$responseVar])))
     output$uploadErrorMsg = renderUI({
       validate(
         need(input$demo, "Metadata is required with at least 1 categorical variable!"),
         need(input$omicsData, "At least one omics data is required!"),
-        need(input$responseVar, "A response variable is required!")
+        need(input$responseVar, "A response variable is required!"),
+        need(length(unique(getDemoData()[, input$responseVar])) > 1, "At least 2 categories required!")
       )
     })
 
@@ -504,12 +508,6 @@ function(input, output, session) {
                 sum(top$logFC < 0 & top$adj.P.Val < input[[paste("fdr", i, sep="_")]]), i, " were down-regulated.")
             })
 
-            print(dplyr::filter(subsetTop(), Significant != "Not Sig") %>%
-                mutate(logFC = signif(logFC, 2),
-                  P.Value = signif(P.Value, 2),
-                  adj.P.Val = signif(adj.P.Val, 2),
-                  sig = signif(sig, 2)) %>%
-                dplyr::select(FeatureName, logFC, P.Value, adj.P.Val), options = list(lengthChange = FALSE))
             # table of significant featuers
             output[[paste("sig", i, sep="_")]] <-  DT::renderDataTable( dplyr::filter(subsetTop(), Significant != "Not Sig") %>%
                 mutate(logFC = signif(logFC, 2),
@@ -519,10 +517,11 @@ function(input, output, session) {
                 dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
 
             ## Differential pathway analysis
-            pathwaydbs <- c("Jensen_DISEASES", "BioCarta_2016", "Reactome_2016", "KEGG_2016", "WikiPathways_2016")
+            pathwaydbs <- c("Jensen_DISEASES", "KEGG_2019_Human", "WikiPathways_2019_Human")
             sigTable <- dplyr::filter(subsetTop(), Significant != "Not Sig")
             up <- sigTable$FeatureName[sigTable$logFC > 0 ]
             down <- sigTable$FeatureName[sigTable$logFC < 0 ]
+            dbs <- listEnrichrDbs()
 
             # Run Pathway Analysis using EnrichR
             if(length(up) > 0 ){
@@ -531,23 +530,6 @@ function(input, output, session) {
               edgesGsetUp <- do.call(rbind, enrichedUp) %>%
                 dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
                 dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
-                print(head(edgesGsetUp))
-
-                # ref <- lapply(edgesGsetUp$Term, function(gset){
-                #   strsplit(dplyr::filter(edgesGsetUp, Term == gset)$Genes, ";")[[1]]
-                # })
-                # names(ref) <- edgesGsetUp$Term
-                # print(ref)
-                # links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
-                #   dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
-                #   dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
-                #     ref[as.character(to)], omicsBioAnalytics::jaccard)))
-                # edges <- links[links$int > 0.1, ]
-                # nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
-                # nodes$label <- nodes$id
-                # nodes$color <- "skyblue"
-                # print(head(links))
-
             } else {
               edgesGsetUp <- data.frame()
             }
@@ -557,7 +539,6 @@ function(input, output, session) {
               edgesGsetDown <- do.call(rbind, enrichedDown) %>%
                 dplyr::mutate(database = rep(names(enrichedDown), sapply(enrichedDown, nrow))) %>%
                 dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
-              print(head(edgesGsetDown))
             } else {
               edgesGsetDown <- data.frame()
             }
@@ -569,7 +550,6 @@ function(input, output, session) {
               edgesPertUp <- do.call(rbind, enrichedUp) %>%
                 dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
                 dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
-              print(head(edgesPertUp))
 
             } else {
               edgesPertUp <- data.frame()
@@ -580,7 +560,6 @@ function(input, output, session) {
               edgesPertDown <- do.call(rbind, enrichedDown) %>%
                 dplyr::mutate(database = rep(names(enrichedDown), sapply(enrichedDown, nrow))) %>%
                 dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
-              print(head(edgesPertDown))
             } else {
               edgesPertDown <- data.frame()
             }
@@ -588,7 +567,7 @@ function(input, output, session) {
 
             # Network analysis of up-reulgated features
             output[[paste("upregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
-              if(nrow(edgesGsetUp)> 0){
+              if(nrow(edgesGsetUp)> 1){
                 ref <- lapply(edgesGsetUp$Term, function(gset){
                   strsplit(dplyr::filter(edgesGsetUp, Term == gset)$Genes, ";")[[1]]
                 })
@@ -597,7 +576,9 @@ function(input, output, session) {
                     dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
                     dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
                       ref[as.character(to)], omicsBioAnalytics::jaccard)))
-                  edges <- links[links$int > 0.1, ]
+                  print("number of edges")
+                  print(dim(links))
+                  edges <- links[order(links$int, decreasing = TRUE)[1:10], ]
                   nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
                   nodes$label <- nodes$id
                   nodes$color <- "salmon"
@@ -609,7 +590,7 @@ function(input, output, session) {
 
             # Network analysis of down-regulated features
             output[[paste("downregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
-              if(nrow(edgesGsetDown)> 0){
+              if(nrow(edgesGsetDown)> 1){
                 ref <- lapply(edgesGsetDown$Term, function(gset){
                   strsplit(dplyr::filter(edgesGsetDown, Term == gset)$Genes, ";")[[1]]
                 })
@@ -618,7 +599,9 @@ function(input, output, session) {
                   dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
                   dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
                     ref[as.character(to)], omicsBioAnalytics::jaccard)))
-                edges <- links[links$int > 0.1, ]
+                print("number of edges")
+                print(dim(links))
+                edges <- links[order(links$int, decreasing = TRUE)[1:10], ]
                 nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
                 nodes$label <- nodes$id
                 nodes$color <- "skyblue"
@@ -1210,7 +1193,7 @@ function(input, output, session) {
 
             ## gene set enrichment analysis
             # dbs <- listEnrichrDbs()
-            dbs <- c("Jensen_DISEASES", "BioCarta_2016", "Reactome_2016", "KEGG_2016", "WikiPathways_2016")
+            dbs <- c("Jensen_DISEASES", "KEGG_2019_Human", "WikiPathways_2019_Human")
             enriched <- enrichr(unlist(ensemblePanel), dbs)
 
             edgesGset <- do.call(rbind, enriched) %>%
