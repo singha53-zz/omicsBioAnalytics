@@ -142,7 +142,9 @@ function(input, output, session) {
         options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
         ggplotly(DF() %>%
         ggplot(aes(x = x, y = y, fill = x)) +
-          geom_boxplot() +
+          geom_violin(trim=FALSE) +
+          geom_point(position = position_dodge(width = 0.1)) +
+          # geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
           xlab(input$responseVar) +
           ylab(yaxis()) +
           ggtitle(title()) +
@@ -392,6 +394,18 @@ function(input, output, session) {
             conditionalPanel(
               condition = paste0("output.performPathwayAnalysis.indexOf('", i, "') != -1"),
             fluidRow(
+              column(6, h1("up-regulated pathways")),
+              column(6, h1("down-regulated pathways")),
+              column(6, h3("download up-regulated pathways")),
+              column(6, h3("download down-regulated pathways"))
+            ),
+              fluidRow(
+                column(6, h1(paste0("drugs that reverse expression of up-regulated ", i))),
+                column(6, h1(paste0("drugs that reverse expression of down-regulated ", i))),
+                column(6, h3(paste0("download drugs that reverse expression of up-regulated ", i))),
+                column(6, h3(paste0("download drugs that reverse expression of down-regulated ", i)))
+              ),
+            fluidRow(
               column(12, plotOutput(paste("gsetPlot", i, sep="_"), height = "250px")),
               column(2, ""),
               column(2, actionButton(paste("keggButton", i, sep="_"), "Significant KEGG pathways", icon = icon("table")),
@@ -476,7 +490,9 @@ function(input, output, session) {
                 options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
                 ggplotly(data.frame(x = response, y = eset[, var]) %>%
                     ggplot(aes(x = x, y = y, fill = x)) +
-                    geom_boxplot() +
+                    geom_violin(trim=FALSE) +
+                    geom_point(position = position_dodge(width = 0.1)) +
+                    # geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
                     xlab(input$responseVar) +
                     ylab(var) +
                     ggtitle(paste(var, " vs. ", input$responseVar)) +
