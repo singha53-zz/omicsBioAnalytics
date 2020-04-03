@@ -1,6 +1,5 @@
-print(names(heartFailure))
-print(names(covid19))
-
+hfDatasets <- heartFailure$omicsData
+hfDatasets$demo <- heartFailure$demo
 
 function(input, output, session) {
 
@@ -52,11 +51,6 @@ function(input, output, session) {
   output$heartFailure <- downloadHandler(
     filename = "heartFailureDatasets_omicsBioAnalytics.zip",
     content = function(file){
-      hfDatasets <- heartFailure$omicsData
-      hfDatasets$demo <- heartFailure$demo
-      #go to a temp dir to avoid permission issues
-      # owd <- setwd(tempdir())
-      # on.exit(setwd(owd))
       files <- NULL;
 
       #loop through the sheets
@@ -392,7 +386,7 @@ function(input, output, session) {
               column(6, verbatimTextOutput(paste("selection", i, sep="_")), style = 'padding: 15px 10px 0px 10px;'),
               column(6, align = "center",
                 sliderInput(paste("fdr", i, sep="_"), h3("Select FDR threshold", align = "center"),
-                  min = 0.05, max = 0.5, value = 0.05))),
+                  min = 0.05, max = 0.5, value = 0.15))),
             fluidRow(
               column(6, plotly::plotlyOutput(paste("volcanoPlot", i, sep="_"))),
               column(6,
@@ -527,21 +521,27 @@ function(input, output, session) {
             if(length(up) > 0 ){
               # enrichment analysis for up-regulated genes/proteins
               enrichedUp <- enrichr(up, pathwaydbs)
+              print(head(do.call(rbind, enrichedUp)))
               edgesGsetUp <- do.call(rbind, enrichedUp) %>%
                 dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
                 dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
             } else {
               edgesGsetUp <- data.frame()
             }
+            print("Number of up-regulated pathways")
+            print(nrow(edgesGsetUp))
             if(length(down) > 0 ){
               # enrichment analysis for down-regulated genes/proteins
               enrichedDown <- enrichr(down, pathwaydbs)
+              print(head(do.call(rbind, enrichedUp)))
               edgesGsetDown <- do.call(rbind, enrichedDown) %>%
                 dplyr::mutate(database = rep(names(enrichedDown), sapply(enrichedDown, nrow))) %>%
                 dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
             } else {
               edgesGsetDown <- data.frame()
             }
+            print("Number of down-regulated pathways")
+            print(nrow(edgesGsetDown))
 
             # Run EnrichR for drug enrichment analysis
             if(length(up) > 0 ){
