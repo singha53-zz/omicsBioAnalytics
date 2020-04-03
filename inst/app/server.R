@@ -1306,20 +1306,19 @@ function(input, output, session) {
   #
   ################################################################################
   # Generate the PNG
-  png(paste0(tempdir(), "/", "pca.png"), width = 400, height = 300)
-  hist(rnorm(50), main = "PCA plot")
-  dev.off()
-  png(paste0(tempdir(), "/", "volcano_mrna.png"), width = 400, height = 300)
-  hist(rnorm(50), main = "Volcano plot")
-  dev.off()
-
-  x <- reactiveValues(imgs = list.files(tempdir()))
+  # png(paste0(tempdir(), "/", "pca.png"), width = 400, height = 300)
+  # hist(rnorm(50), main = "PCA plot")
+  # dev.off()
+  # png(paste0(tempdir(), "/", "volcano_mrna.png"), width = 400, height = 300)
+  # hist(rnorm(50), main = "Volcano plot")
+  # dev.off()
+  #
+  # x <- reactiveValues(imgs = list.files(tempdir()))
   observe({
-    print(gsub(".png", "", grep(".png", x$imgs, value = TRUE)))
     updateSelectInput(session,
       inputId = "figs",
       label = "Figures:",
-      choices = c("None", gsub(".png", "", grep(".png", x$imgs, value = TRUE))),
+      choices = c("None", gsub(".png", "", grep(".png", list.files(tempdir()), value = TRUE))),
       selected = "None"
     )
   })
@@ -1329,7 +1328,12 @@ function(input, output, session) {
     if (is.null(inFile))
       return()
     file.copy(inFile$datapath, file.path(tempdir(), inFile$name) )
-
+    updateSelectInput(session,
+      inputId = "figs",
+      label = "Figures:",
+      choices = c("None", gsub(".png", "", grep(".png", list.files(tempdir()), value = TRUE))),
+      selected = "None"
+    )
   })
 
   list_of_elements <- list()

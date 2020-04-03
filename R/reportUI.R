@@ -14,15 +14,15 @@ reportUI <- function() {
               selected = "None"
             ),
             fileInput("cFig", "Upload custom figure"),
-            downloadButton("report", "Generate report"),
-            imageOutput("myImage")
+            downloadButton("report", "Generate report")
     ),
     mainPanel(
       h1("Add section"),
+      imageOutput("myImage"),
       div(
         h4("Text"),
         tags$textarea(
-          "Please using any **markdown** syntax!",
+          "**Markdown** syntax is allowed.",
           id    = 'markdowninput',
           rows  = 3,
           style = 'width:80%;')),
