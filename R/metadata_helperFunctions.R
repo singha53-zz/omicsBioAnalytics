@@ -3,8 +3,8 @@
 splitData = function (demo, group = NULL, trim = 0.8) {
   assertthat::assert_that(!is.null(group), msg = "Please provide a group argument (must be a column name in demo)")
   assertthat::assert_that(group %in% colnames(demo), msg = "group must be present in the demographics dataset.")
-  assertthat::assert_that(is.factor(demo[, group]), msg = "group must be of class factor.")
-  assertthat::assert_that(nlevels(droplevels(demo[, group])) >1, msg = "group should at least 2 levels.")
+  # assertthat::assert_that(is.factor(demo[, group]), msg = "group must be of class factor.")
+  # assertthat::assert_that(nlevels(droplevels(demo[, group])) >1, msg = "group should at least 2 levels.")
   print("Number of samples in each group")
   print(table(demo[, group]))
   imbal <- scale(table(demo[, group]), center = FALSE, scale = nrow(demo)) %>%
@@ -187,8 +187,8 @@ summariseContVar = function(demo, group, format){
 computeDescriptiveStats = function(demo, group = NULL, trim = 0.5, format){
   assertthat::assert_that(!is.null(group), msg = "Please provide a group argument (must be a column name in demo)")
   assertthat::assert_that(group %in% colnames(demo), msg = "group must be present in the demographics dataset.")
-  assertthat::assert_that(is.factor(demo[, group]), msg = "group must be of class factor.")
-  assertthat::assert_that(nlevels(droplevels(demo[, group])) > 1, msg = "group should have at least 2 levels.")
+  # assertthat::assert_that(is.factor(demo[, group]), msg = "group must be of class factor.")
+  # assertthat::assert_that(nlevels(droplevels(demo[, group])) > 1, msg = "group should have at least 2 levels.")
   print(colnames(demo))
 
   print(paste0("Summarize continous variables.", "\n"))
