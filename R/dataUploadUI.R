@@ -33,7 +33,9 @@ dataUpload <- function() {
         h2("Voice-enabled analytics"),
         actionButton("alexa", "Alexa, analyze my data!", icon = icon("user"),
           style="color: #fff; background-color: #337ab7; border-color: #2e6da4"),
-        bsModal("modal", "Data Table", "alexa", size = "large", textOutput("msg"))))
+        bsModal("modal", "Omics BioAnalytics Alexa Skill", "alexa", size = "large", textOutput("msg"))),
+      uiOutput("errMsgAlexa")
+      )
     # fluidRow(
     #   column(12,
     #     h2("Voice-enabled analytics"),

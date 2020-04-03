@@ -19,13 +19,13 @@ library(tidyverse); library(knitr);
 # write.table(transcripts[, order(geneSd, decreasing = TRUE)[1:5000]], file = here::here("inst", "extdata", "caseStudy", "mrna.tsv"), sep = "\t")
 
 omicsData <- lapply(c("cells.tsv", "holter.tsv", "mrna.tsv", "proteins.tsv"), function(i){
-  read.csv(here::here("inst", "extdata", "caseStudy", i), header = TRUE, sep = "\t")
+  read.csv(here::here("inst", "extdata", "heartFailure", i), header = TRUE, sep = "\t")
 })
 names(omicsData) <- c("cells", "holter", "mrna", "proteins")
 
 ## save heart failure datasets
 heartFailure <- list(
-  demo = read.csv(here::here("inst", "extdata", "caseStudy", "clinical.tsv"), header = TRUE, sep = "\t"),
+  demo = read.csv(here::here("inst", "extdata", "heartFailure", "clinical.tsv"), header = TRUE, sep = "\t"),
   omicsData = omicsData
 )
 ```

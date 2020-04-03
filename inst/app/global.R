@@ -16,13 +16,15 @@ suppressPackageStartupMessages(library("enrichR"));
 suppressPackageStartupMessages(library("visNetwork"));
 suppressPackageStartupMessages(library("caret"));
 suppressPackageStartupMessages(library("glmnet"));
+suppressPackageStartupMessages(library("ggrepel"));
+
 
 
 
 ## Import data
-data("pathwayDB")
 data("heartFailure")
 data("covid19")
+data("pathwayDB")
 
 ## pathways to use
 kegg <- subset(pathwayDB, DB == "KEGG_2019_Human")
@@ -41,18 +43,16 @@ Sys.setenv("S3BUCKET" = readRDS("S3BUCKET.rds"),
 ## color paletter for groups
 groupColors <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-dynamodbTableName <- Sys.getenv("TABLE_NAME")
-S3Bucket <- Sys.getenv("S3BUCKET")
-previousWorkloads <- sapply(get_bucket(bucket = S3Bucket), function(i){
-  strsplit(i$Key, "-")[[1]][1]
-})
-flag <- TRUE
-while(flag){
+# If Alexa Skill is setup already then change the flag below to TRUE
+alexaSkillExists <- TRUE
+if(alexaSkillExists){
+  dynamodbTableName <- Sys.getenv("TABLE_NAME")
+  S3Bucket <- Sys.getenv("S3BUCKET")
+  previousWorkloads <- sapply(get_bucket(bucket = S3Bucket), function(i){
+    strsplit(i$Key, "-")[[1]][1]
+  })
   userID <- paste(sample(0:9, 7), collapse = "")
   if(!(userID %in% previousWorkloads)){
     flag <- FALSE
   }
 }
-
-# test upload to dynamoDB
-# omicsBioAnalytics::put_item(dynamodbTableName, list(id = userID, phoneNumber= jsonlite::toJSON("50 subjects")))

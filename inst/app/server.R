@@ -1,3 +1,5 @@
+print(names(heartFailure))
+print(names(covid19))
 
 
 function(input, output, session) {
@@ -98,7 +100,6 @@ function(input, output, session) {
     ## split demo data into cat and cont vars
     demo <- getDemoData()
     response <- relevel(factor(as.character(demo[, input$responseVar])), ref = input$refVar)
-    print(response)
     demoSplit <- omicsBioAnalytics::splitData(demo, group = input$responseVar, trim = 0.8)
     ## @@@@@@@@@@@@@@@@@@@@@@@ Continuous variable panel @@@@@@@@@@@@@@@@@@@@@@@ ##
     updateRadioButtons(session, "vars",
@@ -1332,13 +1333,11 @@ function(input, output, session) {
     outputOptions(output, "analysisRan", suspendWhenHidden = FALSE)
   })
 
-
   ################################################################################
   #
   # Generate a report
   #
   ################################################################################
-
   # Generate the PNG
   png(paste0(tempdir(), "/", "pca.png"), width = 400, height = 300)
   hist(rnorm(50), main = "PCA plot")
@@ -1428,10 +1427,6 @@ function(input, output, session) {
   observe({
     list_of_elements <<- list_of_elements[input$rank_list_1]
   })
-  # observe({
-  #     tracker$section <- tracker$section[input$rank_list_1]
-  # })
-
 
   output$report <- downloadHandler(
     # For PDF output, change this to "report.pdf"
@@ -1478,54 +1473,62 @@ function(input, output, session) {
       alt = "No image was selected from side panel.")
   }, deleteFile = FALSE)
 
-
-
-
+  ################################################################################
+  #
   # Voice-enabled analytics
-  observeEvent(input$alexa, {
+  #
+  ################################################################################
+  if(alexaSkillExists){
+    observeEvent(input$alexa, {
+      # # req(input$demo); req(input$omicsData);
+      # errMsgAlexa <- reactive({validate(
+      #   need(is.null(input$demo), "Metadata must be provided."),
+      #   need(is.null(input$omicsData), "Please upload at least one omics data file.")
+      # )})
+      # output$errMsgAlexa <- renderUI({
+      #   errMsgAlexa()
+      # })
 
-    output$msg <- renderText({
-      "Alexa is taking a look at your data, please wait..."
+      # output$msg <- renderText({
+      #   "Alexa is taking a look at your data, please wait..."
+      # })
+
+      withProgress(message = 'Alexa is taking a look.',
+        detail = 'This may take a while...', value = 0, {
+
+          demo <- isolate({getDemoData()})
+          responseColumnName <- isolate({input$responseVar})
+          responseRefLevel <- isolate({input$refVar})
+          response <- isolate({relevel(factor(as.character(demo[, responseColumnName])), ref = input$refVar)})
+          omicsData <- isolate({getOmicsData()})
+
+          dynamodbAttr <- list()
+          # analyze demo data and save images to S3
+          dynamodbAttr$ds <- omicsBioAnalytics::alexaMetadata(demo, group = responseColumnName, trim = 0.5, format = "APL")
+
+          # demo <- heartFailure$demo
+          # omicsData <- heartFailure$omicsData[c("cells", "holter", "proteins")]
+          # group <- "hospitalizations"
+          # EDA and save images to S3
+          dynamodbAttr$eda <- omicsBioAnalytics::alexaEda(demo, group = responseColumnName, omicsData)
+
+          # Perform Differential Expression Analysis and save images to S3
+          dynamodbAttr$dexp <- omicsBioAnalytics::alexaDexp(demo, group = responseColumnName, omicsData)
+
+          # save dynamodb attributes to dynamodbTableName (set in global.R) for userID (set in global.R)
+          omicsBioAnalytics::put_item(dynamodbTableName, list(id = userID, phoneNumber= jsonlite::toJSON(dynamodbAttr)))
+        })
+        output$msg <- renderText({
+          paste0("If you have an Alexa device please say, 'Alexa, start omics bioanalytics' to begin. \n Please use the following id to access your analysis when prompted by Alexa: ", userID)
+        })
     })
-
-    if(any(c(is.null(input$demo), is.null(input$omicsData), is.null(input$responseVar)))) {
+  } else {
+    observeEvent(input$alexa, {
       output$msg <- renderText({
-        "Missing the required data files and response selection!"
+        "This functionality has been suspended due to cost considerations of S3 and DynamoDB. Please see the Overview tab for a link to the source code (github repo) and step-by-step setup instructions for the complementary Alexa Skill. Sorry for the inconvenience."
       })
-    } else {
-
-      diffexp = function(datasets, response){
-        design <- model.matrix(~response)
-        lapply(datasets, function(i){
-          fit <- eBayes(lmFit(t(i), design))
-          top <- topTable(fit, coef = 2, adjust.method = "BH", n = nrow(fit), sort.by="none")
-          top %>% mutate(FeatureName = colnames(i),
-            sig = -log10(P.Value)) %>%
-            arrange(P.Value)
-        })
-      }
-      dexpResults <- diffexp(heartFailure$omicsData, heartFailure$demo[, "hospitalizations"])
-
-      dexpResults <- lapply(names(dexpResults), function(name){
-        lapply(c(0.01, 0.05, 0.1, 0.2), function(fdr){
-          volcanoPlot <- dexpResults[[name]] %>%
-            mutate(Significant=ifelse(adj.P.Val < fdr, paste("FDR < ", fdr), "Not Sig")) %>%
-            ggplot(aes(x = logFC, y = sig, color = Significant)) +
-            geom_point() +
-            ylab("-log10(p-value)") +
-            xlab(expression("log2 fold-change")) +
-            theme_bw()
-          ggsave(paste0(tempdir(), "/", paste(userID, name, fdr, sep="-"), ".png"), volcanoPlot, device = "png")
-        })
-      })
-      s3sync(grep(userID, list.files(tempdir()), value = TRUE), bucket = S3Bucket, direction = "upload")
-
-      # Upon completion of analysis
-      output$msg <- renderText({
-        paste0("If you have an Alexa device please say, 'Alexa, start omics bioanalytics' to begin. \n Please use the following id to access your analysis when prompted by Alexa: ", userID)
-      })
-    }
-  })
+    })
+  }
 
   # delete temp files
   session$onSessionEnded(function() {
