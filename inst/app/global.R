@@ -16,6 +16,8 @@ suppressPackageStartupMessages(library("enrichR"));
 suppressPackageStartupMessages(library("visNetwork"));
 suppressPackageStartupMessages(library("caret"));
 suppressPackageStartupMessages(library("glmnet"));
+suppressPackageStartupMessages(library("ggrepel"));
+
 
 
 
