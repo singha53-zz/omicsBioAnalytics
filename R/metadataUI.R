@@ -1,18 +1,18 @@
 #' @export
 #' @rdname uiElements
-patientCharacteristics <- function() {
+metadata <- function() {
   fluidRow(tabsetPanel(
     tabPanel(
       "Continuous variables",
       radioButtons(
         "vars",
-        "Demographic variable:",
+        "Choose from one of the following variables:",
         "",
         inline = TRUE
       ),
       fluidRow(column(6, radioButtons(
         "transform",
-        "Should the clinical variable be log transformed?",
+        "Should the variable be log transformed?",
         c("No" = "no", "Yes" = "yes"),
         inline = TRUE
       )), column(6, radioButtons(
@@ -46,7 +46,7 @@ patientCharacteristics <- function() {
         column(6,
           radioButtons(
             "catVar",
-            "categorical variable:",
+            "Choose from one of the following variables:",
             "",
             inline = TRUE
           )),

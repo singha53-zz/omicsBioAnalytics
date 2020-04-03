@@ -1,55 +1,7 @@
 
 # Header
 header <- dashboardHeader(
-  title = "Omics BioAnalytics",
-
-  # Dropdown menu for messages
-  dropdownMenu(type = "messages", badgeStatus = "success",
-    messageItem("Support Team",
-      "This is the content of a message.",
-      time = "5 mins"
-    ),
-    messageItem("Support Team",
-      "This is the content of another message.",
-      time = "2 hours"
-    ),
-    messageItem("New User",
-      "Can I get some help?",
-      time = "Today"
-    )
-  ),
-
-  # Dropdown menu for notifications
-  dropdownMenu(type = "notifications", badgeStatus = "warning",
-    notificationItem(icon = icon("users"), status = "info",
-      "5 new members joined today"
-    ),
-    notificationItem(icon = icon("warning"), status = "danger",
-      "Resource usage near limit."
-    ),
-    notificationItem(icon = icon("shopping-cart", lib = "glyphicon"),
-      status = "success", "25 sales made"
-    ),
-    notificationItem(icon = icon("user", lib = "glyphicon"),
-      status = "danger", "You changed your username"
-    )
-  ),
-
-  # Dropdown menu for tasks, with progress bar
-  dropdownMenu(type = "tasks", badgeStatus = "danger",
-    taskItem(value = 20, color = "aqua",
-      "Refactor code"
-    ),
-    taskItem(value = 40, color = "green",
-      "Design new layout"
-    ),
-    taskItem(value = 60, color = "yellow",
-      "Another task"
-    ),
-    taskItem(value = 80, color = "red",
-      "Write documentation"
-    )
-  )
+  title = "Omics BioAnalytics"
 )
 
 # Sidebar
@@ -95,7 +47,7 @@ sidebar <- dashboardSidebar(
         "Analysis",
         tabName = "analysis",
         icon = icon("bar-chart-o"),
-        menuSubItem("Patient Characteristics", tabName = "subitem1"),
+        menuSubItem("Metadata", tabName = "subitem1"),
         menuSubItem("Exploratory Data Analysis", tabName = "subitem2"),
         menuSubItem("Differential Expression", tabName = "subitem3"),
         menuSubItem("Biomarker Panels", tabName = "subitem4")
@@ -131,7 +83,7 @@ body <- dashboardBody(
           omicsBioAnalytics::dataUpload()
         ),
         tabItem("subitem1",
-          omicsBioAnalytics::patientCharacteristics()
+          omicsBioAnalytics::metadata()
         ),
         tabItem("subitem2",
           omicsBioAnalytics::eda()
