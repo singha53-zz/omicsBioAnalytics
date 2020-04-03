@@ -92,6 +92,14 @@ function(input, output, session) {
 
   # Run analysis
   observeEvent(input$run, {
+    output$uploadErrorMsg = renderUI({
+      validate(
+        need(input$demo, "Metadata is required with at least 1 categorical variable!"),
+        need(input$omicsData, "At least one omics data is required!"),
+        need(input$responseVar, "A response variable is required!")
+      )
+    })
+
     ################################################################################
     #
     # Patient Characteristics

@@ -22,7 +22,8 @@ dataUpload <- function() {
          "OR Try these examples datasets:",
          column(6,
            actionButton("run", "Run Analysis", icon = icon("play"),
-             style="color: #fff; background-color: #337ab7; border-color: #2e6da4")
+             style="color: #fff; background-color: #337ab7; border-color: #2e6da4"),
+           uiOutput("uploadErrorMsg")
          ),
          column(6,
            customDownloadButton("heartFailure", label = "Heart Failure", icon = icon("heart")),
