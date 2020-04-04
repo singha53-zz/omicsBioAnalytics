@@ -57,7 +57,7 @@ function(input, output, session) {
       for (i in 1:length(hfDatasets)){
         #write each sheet to a csv file, save the name
         fileName <- paste0(names(hfDatasets)[i], ".csv")
-        write.table(hfDatasets[[i]], fileName, sep = ',')
+        write.table(hfDatasets[[i]], fileName, sep = ',', row.names = FALSE)
         files <- c(fileName,files)
       }
       #create the zip file
@@ -75,7 +75,7 @@ function(input, output, session) {
       for (i in 1:length(covid19)){
         #write each sheet to a csv file, save the name
         fileName <- paste0(names(covid19)[i], ".csv")
-        write.table(covid19[[i]], fileName, sep = ',')
+        write.table(covid19[[i]], fileName, sep = ',', row.names = FALSE)
         files <- c(fileName,files)
       }
       #create the zip file
