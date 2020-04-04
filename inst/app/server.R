@@ -39,6 +39,12 @@ function(input, output, session) {
     names(datasetNames)[datasetNames]
   })
   outputOptions(output, "performPathwayAnalysis", suspendWhenHidden = FALSE)
+  performPathwayAnalysis <- reactive({
+    datasetNames <- sapply(names(getOmicsData()), function(i){
+      length(intersect(colnames(getOmicsData()[[i]]), unlist(kegg))) > 5
+    })
+    names(datasetNames)[datasetNames]
+  })
 
   # Do not show analysis sidemenu at startup!!
   output$analysisRan <- reactive({
@@ -407,17 +413,17 @@ function(input, output, session) {
               column(6, h6("Zoom in to see pathway labels")),
               column(6, h6("Zoom in to see pathway labels")),
               column(6,
-                downloadButton("edgesGsetUp", label = HTML("<span style='font-size:1em;'>Download<br/>Up-regulated Pathways</span>"), style="color: #fff; background-color: #F8766D; border-color: #2e6da4")),
+                downloadButton(paste("edgesGsetUp", i, sep="_"), label = HTML("<span style='font-size:1em;'>Download<br/>Up-regulated Pathways</span>"), style="color: #fff; background-color: #F8766D; border-color: #2e6da4")),
               column(6,
-                downloadButton("edgesGsetDown", label = HTML("<span style='font-size:1em;'>Download<br/>Down-regulated Pathways</span>"), style="color: #fff; background-color: #619CFF; border-color: #2e6da4"))
+                downloadButton(paste("edgesGsetDown", i, sep="_"), label = HTML("<span style='font-size:1em;'>Download<br/>Down-regulated Pathways</span>"), style="color: #fff; background-color: #619CFF; border-color: #2e6da4"))
             ),
               fluidRow(
                 column(6, h1(paste0("Drugs that reverse expression of up-regulated ", i))),
                 column(6, h1(paste0("Drugs that reverse expression of down-regulated ", i))),
                 column(6,
-                  downloadButton("edgesPertUp", label = HTML(paste0("<span style='font-size:1em;'>Download<br/>LINCS L1000 Chemical Perturabations that reverse expression of upregulated ", i, "</span>")), style="color: #fff; background-color: #F8766D; border-color: #2e6da4")),
+                  downloadButton(paste("edgesPertUp", i, sep="_"), label = HTML(paste0("<span style='font-size:1em;'>Download<br/>LINCS L1000 Chemical Perturabations that reverse expression of upregulated ", i, "</span>")), style="color: #fff; background-color: #F8766D; border-color: #2e6da4")),
                 column(6,
-                  downloadButton("edgesPertDown", label = HTML(paste0("<span style='font-size:1em;'>Download<br/>LINCS L1000 Chemical Perturabations that reverse expression of downregualted ", i, "</span>")), style="color: #fff; background-color: #619CFF; border-color: #2e6da4"))
+                  downloadButton(paste("edgesPertDown", i, sep="_"), label = HTML(paste0("<span style='font-size:1em;'>Download<br/>LINCS L1000 Chemical Perturabations that reverse expression of downregualted ", i, "</span>")), style="color: #fff; background-color: #619CFF; border-color: #2e6da4"))
               )
             )
             )
@@ -433,6 +439,9 @@ function(input, output, session) {
           observeEvent(input[[paste("fdr", i, sep="_")]], {
           observeEvent(input[[paste("comparison", i, sep="_")]], {
           observeEvent(input[[paste("deTest", i, sep="_")]], {
+            print(input[[paste("fdr", i, sep="_")]])
+            print(input[[paste("comparison", i, sep="_")]])
+            print(input[[paste("deTest", i, sep="_")]])
             req(input[[paste("fdr", i, sep="_")]])
             req(input[[paste("comparison", i, sep="_")]])
             req(input[[paste("deTest", i, sep="_")]])
@@ -510,68 +519,112 @@ function(input, output, session) {
                   sig = signif(sig, 2)) %>%
                 dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
 
+            # Differential Expression analysis
+            print(i)
+            print(performPathwayAnalysis())
+
+
             ## Differential pathway analysis
-            pathwaydbs <- c("Jensen_DISEASES", "KEGG_2019_Human", "WikiPathways_2019_Human")
-            sigTable <- dplyr::filter(subsetTop(), Significant != "Not Sig")
-            up <- sigTable$FeatureName[sigTable$logFC > 0 ]
-            down <- sigTable$FeatureName[sigTable$logFC < 0 ]
-            dbs <- listEnrichrDbs()
+            if(i %in% performPathwayAnalysis()){
+              pathwaydbs <- c("Jensen_DISEASES", "KEGG_2019_Human", "WikiPathways_2019_Human")
+              sigTable <- dplyr::filter(subsetTop(), Significant != "Not Sig")
+              up <- sigTable$FeatureName[sigTable$logFC > 0 ]
+              down <- sigTable$FeatureName[sigTable$logFC < 0 ]
+              dbs <- listEnrichrDbs()
 
-            # Run Pathway Analysis using EnrichR
-            if(length(up) > 0 ){
-              # enrichment analysis for up-regulated genes/proteins
-              enrichedUp <- enrichr(up, pathwaydbs)
-              print(head(do.call(rbind, enrichedUp)))
-              edgesGsetUp <- do.call(rbind, enrichedUp) %>%
-                dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
-                dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
-            } else {
-              edgesGsetUp <- data.frame()
-            }
-            print("Number of up-regulated pathways")
-            print(nrow(edgesGsetUp))
-            if(length(down) > 0 ){
-              # enrichment analysis for down-regulated genes/proteins
-              enrichedDown <- enrichr(down, pathwaydbs)
-              print(head(do.call(rbind, enrichedUp)))
-              edgesGsetDown <- do.call(rbind, enrichedDown) %>%
-                dplyr::mutate(database = rep(names(enrichedDown), sapply(enrichedDown, nrow))) %>%
-                dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
-            } else {
-              edgesGsetDown <- data.frame()
-            }
-            print("Number of down-regulated pathways")
-            print(nrow(edgesGsetDown))
+              # Run Pathway Analysis using EnrichR
+              if(length(up) > 0){
+                # enrichment analysis for up-regulated genes/proteins
+                enrichedUp <- enrichr(up, pathwaydbs)
+                print(head(do.call(rbind, enrichedUp)))
+                edgesGsetUp <- do.call(rbind, enrichedUp) %>%
+                  dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
+                  dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
+              } else {
+                edgesGsetUp <- data.frame(msg = "No pathways were identified")
+              }
+              print("Number of up-regulated pathways")
+              print(nrow(edgesGsetUp))
+              if(length(down) > 0){
+                # enrichment analysis for down-regulated genes/proteins
+                enrichedDown <- enrichr(down, pathwaydbs)
+                print(head(do.call(rbind, enrichedUp)))
+                edgesGsetDown <- do.call(rbind, enrichedDown) %>%
+                  dplyr::mutate(database = rep(names(enrichedDown), sapply(enrichedDown, nrow))) %>%
+                  dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
+              } else {
+                edgesGsetDown <- data.frame(msg = "No pathways were identified")
+              }
+              print("Number of down-regulated pathways")
+              print(nrow(edgesGsetDown))
 
-            # Run EnrichR for drug enrichment analysis
-            if(length(up) > 0 ){
-              # enrichment analysis for up-regulated genes/proteins
-              enrichedUp <- enrichr(up, "LINCS_L1000_Chem_Pert_down")
-              edgesPertUp <- do.call(rbind, enrichedUp) %>%
-                dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
-                dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
+              # Run EnrichR for drug enrichment analysis
+              if(length(up) > 0){
+                # enrichment analysis for up-regulated genes/proteins
+                enrichedUp <- enrichr(up, "LINCS_L1000_Chem_Pert_down")
+                edgesPertUp <- do.call(rbind, enrichedUp) %>%
+                  dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
+                  dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
 
-            } else {
-              edgesPertUp <- data.frame()
-            }
-            if(length(down) > 0 ){
-              # enrichment analysis for down-regulated genes/proteins
-              enrichedDown <- enrichr(down, "LINCS_L1000_Chem_Pert_up")
-              edgesPertDown <- do.call(rbind, enrichedDown) %>%
-                dplyr::mutate(database = rep(names(enrichedDown), sapply(enrichedDown, nrow))) %>%
-                dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
-            } else {
-              edgesPertDown <- data.frame()
-            }
+              } else {
+                edgesPertUp <- data.frame(msg = "No pathways were identified")
+              }
+              if(length(down) > 0){
+                # enrichment analysis for down-regulated genes/proteins
+                enrichedDown <- enrichr(down, "LINCS_L1000_Chem_Pert_up")
+                edgesPertDown <- do.call(rbind, enrichedDown) %>%
+                  dplyr::mutate(database = rep(names(enrichedDown), sapply(enrichedDown, nrow))) %>%
+                  dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
+              } else {
+                edgesPertDown <- data.frame(msg = "No pathways were identified")
+              }
 
+              output[[paste("edgesGsetUp", i, sep="_")]] <- downloadHandler(
+                filename = function() {
+                  paste("Enrichment_of_upregulated_variables_OmicsBioAnalytics_", i, "_FDR",
+                    input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
+                },
+                content = function(file) {
+                  write.csv(edgesGsetUp, file)
+                }
+              )
+              output[[paste("edgesGsetDown", i, sep="_")]] <- downloadHandler(
+                filename = function() {
+                  paste("Enrichment_of_downregulated_variables_OmicsBioAnalytics_", i, "_FDR",
+                    input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
+                },
+                content = function(file) {
+                  write.csv(edgesGsetDown, file)
+                }
+              )
+              output[[paste("edgesPertUp", i, sep="_")]] <- downloadHandler(
+                filename = function() {
+                  paste("Compounds_that_reverse_expression_of_upregulated_variables_OmicsBioAnalytics_", i, "_FDR",
+                    input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
+                },
+                content = function(file) {
+                  write.csv(edgesPertUp, file)
+                }
+              )
+              output[[paste("edgesPertDown", i, sep="_")]] <- downloadHandler(
+                filename = function() {
+                  paste("Compounds_that_reverse_expression_of_downregulated_variables_OmicsBioAnalytics_", i, "_FDR",
+                    input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
+                },
+                content = function(file) {
+                  write.csv(edgesPertDown, file)
+                }
+              )
 
-            # Network analysis of up-reulgated features
-            output[[paste("upregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
-              if(nrow(edgesGsetUp)> 1){
-                ref <- lapply(edgesGsetUp$Term, function(gset){
-                  strsplit(dplyr::filter(edgesGsetUp, Term == gset)$Genes, ";")[[1]]
-                })
-                names(ref) <- edgesGsetUp$Term
+              }
+
+              # Network analysis of up-reulgated features
+              output[[paste("upregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
+                if(nrow(edgesGsetUp) > 1 & i %in% performPathwayAnalysis()){
+                  ref <- lapply(edgesGsetUp$Term, function(gset){
+                    strsplit(dplyr::filter(edgesGsetUp, Term == gset)$Genes, ";")[[1]]
+                  })
+                  names(ref) <- edgesGsetUp$Term
                   links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
                     dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
                     dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
@@ -583,71 +636,33 @@ function(input, output, session) {
                   nodes$label <- nodes$id
                   nodes$color <- "salmon"
                   visNetwork::visNetwork(nodes, edges)
-              } else {
-                return(NULL)
-              }
-            })
+                } else {
+                  return(NULL)
+                }
+              })
 
-            # Network analysis of down-regulated features
-            output[[paste("downregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
-              if(nrow(edgesGsetDown)> 1){
-                ref <- lapply(edgesGsetDown$Term, function(gset){
-                  strsplit(dplyr::filter(edgesGsetDown, Term == gset)$Genes, ";")[[1]]
-                })
-                names(ref) <- edgesGsetDown$Term
-                links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
-                  dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
-                  dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
-                    ref[as.character(to)], omicsBioAnalytics::jaccard)))
-                print("number of edges")
-                print(dim(links))
-                edges <- links[order(links$int, decreasing = TRUE)[1:10], ]
-                nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
-                nodes$label <- nodes$id
-                nodes$color <- "skyblue"
-                visNetwork::visNetwork(nodes, edges)
-              } else {
-                return(NULL)
-              }
-            })
-
-
-            output$edgesGsetUp <- downloadHandler(
-              filename = function() {
-                paste("Enrichment_of_upregulated_variables_OmicsBioAnalytics_", i, "_FDR",
-                  input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
-              },
-              content = function(file) {
-                write.csv(edgesGsetUp, file)
-              }
-            )
-            output$edgesGsetDown <- downloadHandler(
-              filename = function() {
-                paste("Enrichment_of_downregulated_variables_OmicsBioAnalytics_", i, "_FDR",
-                  input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
-              },
-              content = function(file) {
-                write.csv(edgesGsetDown, file)
-              }
-            )
-            output$edgesPertUp <- downloadHandler(
-              filename = function() {
-                paste("Compounds_that_reverse_expression_of_upregulated_variables_OmicsBioAnalytics_", i, "_FDR",
-                  input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
-              },
-              content = function(file) {
-                write.csv(edgesPertUp, file)
-              }
-            )
-            output$edgesPertDown <- downloadHandler(
-              filename = function() {
-                paste("Compounds_that_reverse_expression_of_downregulated_variables_OmicsBioAnalytics_", i, "_FDR",
-                  input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
-              },
-              content = function(file) {
-                write.csv(edgesPertDown, file)
-              }
-            )
+              # Network analysis of down-regulated features
+              output[[paste("downregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
+                if(nrow(edgesGsetDown)> 1 & i %in% performPathwayAnalysis()){
+                  ref <- lapply(edgesGsetDown$Term, function(gset){
+                    strsplit(dplyr::filter(edgesGsetDown, Term == gset)$Genes, ";")[[1]]
+                  })
+                  names(ref) <- edgesGsetDown$Term
+                  links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
+                    dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
+                    dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
+                      ref[as.character(to)], omicsBioAnalytics::jaccard)))
+                  print("number of edges")
+                  print(dim(links))
+                  edges <- links[order(links$int, decreasing = TRUE)[1:10], ]
+                  nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
+                  nodes$label <- nodes$id
+                  nodes$color <- "skyblue"
+                  visNetwork::visNetwork(nodes, edges)
+                } else {
+                  return(NULL)
+                }
+              })
           })
           })
           })
@@ -1485,7 +1500,7 @@ function(input, output, session) {
   }
 
   # delete temp files
-  session$onSessionEnded(function() {
-    sapply(grep(userID, list.files(tempdir(), full.names = TRUE), value = TRUE), file.remove)
-  })
+  # session$onSessionEnded(function() {
+  #   sapply(list.files(tempdir(), full.names = TRUE), file.remove)
+  # })
 }
