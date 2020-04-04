@@ -76,7 +76,15 @@ body <- dashboardBody(
       tabItems(
         tabItem(
           tabName = "overview",
-          fluidRow(HTML("<img src='app-architecture.png' id='app-architecture'/>"))
+          fluidRow(HTML("<img src='app-architecture.png' id='app-architecture'/>")),
+          fluidRow(align = "center",
+            column(12, h4("Author"), a("Amrit Singh", href="https://www.amritsingh.ca")),
+            column(12, h4("Affiliations"), a("PROOF Centre of Excellence", href="http://www.proofcentre.ca"), "|", a("University of British Columbia", href="https://www.ubc.ca/")),
+            column(12, h4("Source code"), a("web app", href="https://github.com/singha53/omicsBioAnalytics"), " | ", a("Multimodal Alexa Skill", href="https://github.com/singha53/omics-bioanalytics-alexa-skill")),
+            column(12, h4("Demo"), a("Application to heart failure data", href="https://www.youtube.com/watch?v=u1zLL4uXZi8"), " | ", a("Application to COVID-19 data", href="https://www.youtube.com/watch?v=oglZDscpbAU"), " | ",  a("Alexa Skill", href="https://www.youtube.com/watch?v=MEDLiO4CL7o")),
+            column(12, h4("Feedback"), a("Web app", href="https://github.com/singha53/omicsBioAnalytics/issues"), " | ",  a("Alexa Skill", href="https://github.com/singha53/omics-bioanalytics-alexa-skill/blob/master/CONTRIBUTING.md")),
+            column(12, h4("Contest Submission"), a("Shiny Contest 2020", href="https://community.rstudio.com/t/omics-bioanalytics-reproducible-research-using-r-shiny-and-alexa-2020-shiny-contest-submission/59770"))
+          )
         ),
         tabItem(
           tabName = "data",
