@@ -18,9 +18,6 @@ suppressPackageStartupMessages(library("caret"));
 suppressPackageStartupMessages(library("glmnet"));
 suppressPackageStartupMessages(library("ggrepel"));
 
-
-
-
 ## Import data
 data("heartFailure")
 data("covid19")
