@@ -3,6 +3,7 @@
 #' @param ... passed to \link[shiny]{runApp}
 #' @export
 #' @rdname startApplication
-startApp <- function(...) {
-  shiny::runApp("inst/app", ...)
+startApp <- function() {
+  shiny::runApp("inst/app")
 }
+
