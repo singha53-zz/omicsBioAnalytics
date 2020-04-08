@@ -75,7 +75,7 @@ data(covid19)
 
 #### How to generate?
 
-[steps to reproduce the heart failure
+[steps to reproduce the COVID-19
 data](https://github.com/singha53/omicsBioAnalytics/blob/master/inst/extdata/covid19/covid19.md)
 
 ### Heart Failure case study
