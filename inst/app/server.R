@@ -399,9 +399,13 @@ function(input, output, session) {
                 plotly::plotlyOutput(paste("boxplot", i, sep="_"))
               )),
             fluidRow(column(8, h4(textOutput(paste("statement", i, sep="_")))),
-              column(4, actionButton(paste("button", i, sep="_"), "Significant variables", icon = icon("table")),
+              column(4,
+                actionButton(paste("button", i, sep="_"), "Significant variables", icon = icon("table")),
                 bsModal(paste("modal", i, sep="_"), "Differentially expressed variables.", paste("button", i, sep="_"), size = "large",
-                  DT::dataTableOutput(paste("sig", i, sep="_"))))),
+                  DT::dataTableOutput(paste("sig", i, sep="_"))),
+                downloadButton(paste("topTable", i, sep="_"), label = HTML("<span style='font-size:1em;'>Download</span>"), style="color: #fff; background-color: #619CFF; border-color: #2e6da4")
+
+                )),
             hr(),
             conditionalPanel(
               condition = paste0("output.performPathwayAnalysis.indexOf('", i, "') != -1"),
@@ -457,6 +461,16 @@ function(input, output, session) {
                 mutate(Significant=ifelse(adj.P.Val < input[[paste("fdr", i, sep="_")]],
                   paste("FDR < ", input[[paste("fdr", i, sep="_")]]), "Not Sig"))
             })
+
+            output[[paste("topTable", i, sep="_")]] <- downloadHandler(
+              filename = function() {
+                paste("Significant_variables_OmicsBioAnalytics_", i, "_FDR",
+                  input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
+              },
+              content = function(file) {
+                write.csv(subsetTop(), file)
+              }
+            )
 
             # volcano plot
             output[[paste("volcanoPlot", i, sep="_")]] <- renderPlotly({
@@ -631,7 +645,8 @@ function(input, output, session) {
                       ref[as.character(to)], omicsBioAnalytics::jaccard)))
                   print("number of edges")
                   print(dim(links))
-                  edges <- links[order(links$int, decreasing = TRUE)[1:10], ]
+                  edges <- links
+                  #[order(links$int, decreasing = TRUE)[1:10], ]
                   nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
                   nodes$label <- nodes$id
                   nodes$color <- "salmon"
