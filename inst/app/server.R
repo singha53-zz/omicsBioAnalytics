@@ -409,25 +409,22 @@ function(input, output, session) {
             hr(),
             conditionalPanel(
               condition = paste0("output.performPathwayAnalysis.indexOf('", i, "') != -1"),
-            fluidRow(
-              column(6, h1("Up-regulated pathways"),
-                visNetwork::visNetworkOutput(paste("upregulated", i, sep="_"), height = "400px", width = "100%")),
-              column(6, h1("Down-regulated pathways"),
-                visNetwork::visNetworkOutput(paste("downregulated", i, sep="_"), height = "400px", width = "100%")),
-              column(6, h6("Zoom in to see pathway labels")),
-              column(6, h6("Zoom in to see pathway labels")),
-              column(6,
-                downloadButton(paste("edgesGsetUp", i, sep="_"), label = HTML("<span style='font-size:1em;'>Download<br/>Up-regulated Pathways</span>"), style="color: #fff; background-color: #F8766D; border-color: #2e6da4")),
-              column(6,
-                downloadButton(paste("edgesGsetDown", i, sep="_"), label = HTML("<span style='font-size:1em;'>Download<br/>Down-regulated Pathways</span>"), style="color: #fff; background-color: #619CFF; border-color: #2e6da4"))
-            ),
-              fluidRow(
-                column(6, h1(paste0("Drugs that reverse expression of up-regulated ", i))),
-                column(6, h1(paste0("Drugs that reverse expression of down-regulated ", i))),
+            fluidRow(align = 'center',
+              column(12, h1("Geneset Enrichment Analysis"),
+                sliderInput(paste("enrichmentSlider", i, sep="_"), "Select number of pathways:", min=0, max=10, value=5, step=2),
+                plotly::plotlyOutput(paste("pathwayEnrichment", i, sep="_")),
+                downloadButton(paste("edgesGsetAll", i, sep="_"), label = HTML("<span style='font-size:1em;'>Download<br/>Enriched Pathways</span>")))),
+              fluidRow(align = 'center',
+                column(6, h1(paste0("Drugs that reverse expression of up-regulated ", i)),
+                  sliderInput(paste("drugEnrichmentUpSlider", i, sep="_"), "Select number of compounds:", min=0, max=10, value=5, step=2),
+                  plotly::plotlyOutput(paste("drugEnrichmentUp", i, sep="_"))),
+                column(6, h1(paste0("Drugs that reverse expression of down-regulated ", i)),
+                  sliderInput(paste("drugEnrichmentDownSlider", i, sep="_"), "Select number of compounds:", min=0, max=10, value=5, step=2),
+                  plotly::plotlyOutput(paste("drugEnrichmentDown", i, sep="_"))),
                 column(6,
-                  downloadButton(paste("edgesPertUp", i, sep="_"), label = HTML(paste0("<span style='font-size:1em;'>Download<br/>LINCS L1000 Chemical Perturabations that reverse expression of upregulated ", i, "</span>")), style="color: #fff; background-color: #F8766D; border-color: #2e6da4")),
+                  downloadButton(paste("edgesPertUp", i, sep="_"), label = HTML("<span style='font-size:1em;'>Download compounds </span>"), style="color: #fff; background-color: #F8766D; border-color: #2e6da4")),
                 column(6,
-                  downloadButton(paste("edgesPertDown", i, sep="_"), label = HTML(paste0("<span style='font-size:1em;'>Download<br/>LINCS L1000 Chemical Perturabations that reverse expression of downregualted ", i, "</span>")), style="color: #fff; background-color: #619CFF; border-color: #2e6da4"))
+                  downloadButton(paste("edgesPertDown", i, sep="_"), label = HTML("<span style='font-size:1em;'>Download compounds </span>"), style="color: #fff; background-color: #619CFF; border-color: #2e6da4"))
               )
             )
             )
@@ -468,7 +465,7 @@ function(input, output, session) {
                   input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
               },
               content = function(file) {
-                write.csv(subsetTop(), file)
+                write.csv(subsetTop(), file, row.names = FALSE)
               }
             )
 
@@ -533,82 +530,115 @@ function(input, output, session) {
                   sig = signif(sig, 2)) %>%
                 dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
 
-            # Differential Expression analysis
-            print(i)
-            print(performPathwayAnalysis())
-
-
             ## Differential pathway analysis
             if(i %in% performPathwayAnalysis()){
               pathwaydbs <- c("Jensen_DISEASES", "KEGG_2019_Human", "WikiPathways_2019_Human")
               sigTable <- dplyr::filter(subsetTop(), Significant != "Not Sig")
-              up <- sigTable$FeatureName[sigTable$logFC > 0 ]
-              down <- sigTable$FeatureName[sigTable$logFC < 0 ]
-              dbs <- listEnrichrDbs()
+              up <- sigTable$logFC[sigTable$logFC > 0 ]
+              names(up) <- sigTable$FeatureName[sigTable$logFC > 0 ]
+              down <- sigTable$logFC[sigTable$logFC < 0 ]
+              names(down) <- sigTable$FeatureName[sigTable$logFC < 0 ]
+              all <- c(up, down)
+              # dbs <- listEnrichrDbs()
 
               # Run Pathway Analysis using EnrichR
-              if(length(up) > 0){
-                # enrichment analysis for up-regulated genes/proteins
-                enrichedUp <- enrichr(up, pathwaydbs)
-                print(head(do.call(rbind, enrichedUp)))
-                edgesGsetUp <- do.call(rbind, enrichedUp) %>%
-                  dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
+              if(length(all) > 0){
+                # enrichment analysis for all genes/proteins
+                enrichedAll <- enrichr(names(all), pathwaydbs)
+                print(head(do.call(rbind, enrichedAll)))
+                edgesGsetAll <- do.call(rbind, enrichedAll) %>%
+                  dplyr::mutate(database = rep(names(enrichedAll), sapply(enrichedAll, nrow))) %>%
                   dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
+
+                edgesGsetAll_list <- strsplit(edgesGsetAll$Genes, ";")
+                names(edgesGsetAll_list) <- edgesGsetAll$Term
+
+                updateSliderInput(session, paste("enrichmentSlider", i, sep="_"), min = 1, max = length(edgesGsetAll_list), value = min(5, round(length(edgesGsetAll_list)/2, 0)))
+
               } else {
-                edgesGsetUp <- data.frame(msg = "No pathways were identified")
+                edgesGsetAll <- data.frame(msg = "No pathways were identified")
               }
-              print("Number of up-regulated pathways")
-              print(nrow(edgesGsetUp))
-              if(length(down) > 0){
-                # enrichment analysis for down-regulated genes/proteins
-                enrichedDown <- enrichr(down, pathwaydbs)
-                print(head(do.call(rbind, enrichedUp)))
-                edgesGsetDown <- do.call(rbind, enrichedDown) %>%
-                  dplyr::mutate(database = rep(names(enrichedDown), sapply(enrichedDown, nrow))) %>%
-                  dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
-              } else {
-                edgesGsetDown <- data.frame(msg = "No pathways were identified")
-              }
-              print("Number of down-regulated pathways")
-              print(nrow(edgesGsetDown))
+              # plot heatmap of enriched pathway
+              output[[paste("pathwayEnrichment", i, sep="_")]] <- renderPlotly({
+                if(nrow(edgesGsetAll) > 0 & i %in% performPathwayAnalysis()){
+                  options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
+                  ggplotly(
+                    drugHeatmap(fc = all,
+                      genesetList = edgesGsetAll_list[1:input[[paste("enrichmentSlider", i, sep="_")]]],
+                      col = c("#F8766D", "#619CFF"), datasetName = i, GeneSetName = "Pathways")
+                  )
+                } else {
+                  return(NULL)
+                }
+              })
 
               # Run EnrichR for drug enrichment analysis
               if(length(up) > 0){
                 # enrichment analysis for up-regulated genes/proteins
-                enrichedUp <- enrichr(up, "LINCS_L1000_Chem_Pert_down")
+                enrichedUp <- enrichr(names(up), "LINCS_L1000_Chem_Pert_down")
                 edgesPertUp <- do.call(rbind, enrichedUp) %>%
                   dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
                   dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
+
+                edgesPertUp_list <- strsplit(edgesPertUp$Genes, ";")
+                names(edgesPertUp_list) <- edgesPertUp$Term
+
+                updateSliderInput(session, paste("drugEnrichmentUpSlider", i, sep="_"), min = 1, max = length(edgesPertUp_list), value = min(5, round(length(edgesPertUp_list)/2, 0)))
 
               } else {
                 edgesPertUp <- data.frame(msg = "No pathways were identified")
               }
               if(length(down) > 0){
                 # enrichment analysis for down-regulated genes/proteins
-                enrichedDown <- enrichr(down, "LINCS_L1000_Chem_Pert_up")
+                enrichedDown <- enrichr(names(down), "LINCS_L1000_Chem_Pert_up")
                 edgesPertDown <- do.call(rbind, enrichedDown) %>%
                   dplyr::mutate(database = rep(names(enrichedDown), sapply(enrichedDown, nrow))) %>%
                   dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
+
+                edgesPertDown_list <- strsplit(edgesPertDown$Genes, ";")
+                names(edgesPertDown_list) <- edgesPertDown$Term
+
+                updateSliderInput(session, paste("drugEnrichmentDownSlider", i, sep="_"), min = 1, max = length(edgesPertDown_list), value = min(5, round(length(edgesPertDown_list)/2, 0)))
+
               } else {
                 edgesPertDown <- data.frame(msg = "No pathways were identified")
               }
 
-              output[[paste("edgesGsetUp", i, sep="_")]] <- downloadHandler(
-                filename = function() {
-                  paste("Enrichment_of_upregulated_variables_OmicsBioAnalytics_", i, "_FDR",
-                    input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
-                },
-                content = function(file) {
-                  write.csv(edgesGsetUp, file)
+              # plot heatmaps for enriched drugs
+              output[[paste("drugEnrichmentUp", i, sep="_")]] <- renderPlotly({
+                if(nrow(edgesPertUp) > 0 & i %in% performPathwayAnalysis()){
+                  options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
+                  ggplotly(
+                    drugHeatmap(fc = up,
+                      genesetList = edgesPertUp_list[1:input[[paste("drugEnrichmentUpSlider", i, sep="_")]]],
+                      col = "#F8766D", datasetName = i, GeneSetName = "LINCS L1000 Chemical Perturbations Down")
+                  )
+                } else {
+                  return(NULL)
                 }
-              )
-              output[[paste("edgesGsetDown", i, sep="_")]] <- downloadHandler(
+              })
+
+              output[[paste("drugEnrichmentDown", i, sep="_")]] <- renderPlotly({
+                if(nrow(edgesPertDown) > 0 & i %in% performPathwayAnalysis()){
+                  options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
+                  ggplotly(
+                    drugHeatmap(fc = down,
+                      genesetList = edgesPertDown_list[1:input[[paste("drugEnrichmentDownSlider", i, sep="_")]]],
+                      col = "#619CFF", datasetName = i, GeneSetName = "LINCS L1000 Chemical Perturbations Up")
+                  )
+                } else {
+                  return(NULL)
+                }
+              })
+
+              # Download buttons
+              output[[paste("edgesGsetAll", i, sep="_")]] <- downloadHandler(
                 filename = function() {
-                  paste("Enrichment_of_downregulated_variables_OmicsBioAnalytics_", i, "_FDR",
+                  paste("EnrichmentAnalysis_OmicsBioAnalytics_", i, "_FDR",
                     input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
                 },
                 content = function(file) {
-                  write.csv(edgesGsetDown, file)
+                  write.csv(edgesGsetAll, file, row.names = FALSE)
                 }
               )
               output[[paste("edgesPertUp", i, sep="_")]] <- downloadHandler(
@@ -617,7 +647,7 @@ function(input, output, session) {
                     input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
                 },
                 content = function(file) {
-                  write.csv(edgesPertUp, file)
+                  write.csv(edgesPertUp, file, row.names = FALSE)
                 }
               )
               output[[paste("edgesPertDown", i, sep="_")]] <- downloadHandler(
@@ -626,58 +656,12 @@ function(input, output, session) {
                     input[[paste("fdr", i, sep="_")]], "_", Sys.Date(), ".csv", sep="")
                 },
                 content = function(file) {
-                  write.csv(edgesPertDown, file)
+                  write.csv(edgesPertDown, file, row.names = FALSE)
                 }
               )
 
               }
 
-              # Network analysis of up-reulgated features
-              output[[paste("upregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
-                if(nrow(edgesGsetUp) > 1 & i %in% performPathwayAnalysis()){
-                  ref <- lapply(edgesGsetUp$Term, function(gset){
-                    strsplit(dplyr::filter(edgesGsetUp, Term == gset)$Genes, ";")[[1]]
-                  })
-                  names(ref) <- edgesGsetUp$Term
-                  links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
-                    dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
-                    dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
-                      ref[as.character(to)], omicsBioAnalytics::jaccard)))
-                  print("number of edges")
-                  print(dim(links))
-                  edges <- links
-                  #[order(links$int, decreasing = TRUE)[1:10], ]
-                  nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
-                  nodes$label <- nodes$id
-                  nodes$color <- "salmon"
-                  visNetwork::visNetwork(nodes, edges)
-                } else {
-                  return(NULL)
-                }
-              })
-
-              # Network analysis of down-regulated features
-              output[[paste("downregulated", i, sep="_")]] <- visNetwork::renderVisNetwork({
-                if(nrow(edgesGsetDown)> 1 & i %in% performPathwayAnalysis()){
-                  ref <- lapply(edgesGsetDown$Term, function(gset){
-                    strsplit(dplyr::filter(edgesGsetDown, Term == gset)$Genes, ";")[[1]]
-                  })
-                  names(ref) <- edgesGsetDown$Term
-                  links <- t(combn(names(ref), 2)) %>% as.data.frame(.) %>%
-                    dplyr::tbl_df(.) %>% dplyr::rename(from = V1, to = V2) %>%
-                    dplyr::mutate(int = unlist(purrr::map2(ref[as.character(from)],
-                      ref[as.character(to)], omicsBioAnalytics::jaccard)))
-                  print("number of edges")
-                  print(dim(links))
-                  edges <- links[order(links$int, decreasing = TRUE)[1:10], ]
-                  nodes <- data.frame(id=unique(as.character(as.matrix(links[, 1:2]))))
-                  nodes$label <- nodes$id
-                  nodes$color <- "skyblue"
-                  visNetwork::visNetwork(nodes, edges)
-                } else {
-                  return(NULL)
-                }
-              })
           })
           })
           })
