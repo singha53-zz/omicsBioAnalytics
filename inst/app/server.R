@@ -89,7 +89,6 @@ function(input, output, session) {
     }
   )
 
-
   # Run analysis
   observeEvent(input$run, {
     print("number of levels")
@@ -113,6 +112,7 @@ function(input, output, session) {
     demo <- getDemoData()
     response <- relevel(factor(as.character(demo[, input$responseVar])), ref = input$refVar)
     demoSplit <- omicsBioAnalytics::splitData(demo, group = input$responseVar, trim = 0.8)
+
     ## @@@@@@@@@@@@@@@@@@@@@@@ Continuous variable panel @@@@@@@@@@@@@@@@@@@@@@@ ##
     updateRadioButtons(session, "vars",
       label = "Choose from one of the following variables:",
@@ -384,18 +384,32 @@ function(input, output, session) {
                   selected = paste(levels(response)[1], setdiff(levels(response), levels(response)[1]), sep = " vs. ")[1],
                   inline = TRUE)
               ),
-              column(6,
+              column(4,
                 radioButtons(paste("deTest", i, sep="_"), "Test:",
                   c("OLS" = "ols", "LIMMA" = "limma", "LIMMA voom" = "vlimma"),
                   "limma",
                   inline = TRUE)),
+              column(2,
+                br(),
+                bsButton(paste("search_button", i, sep="_"), label = "", icon = icon("question"), style = "color:gray", size = "extra-small"),
+                bsPopover(id = paste("search_button", i, sep="_"), title = "Tests",
+                  content = "OLS: Ordinary Least Squares, LIMMA: OLS with eBayes variance correction factor",
+                  placement = "right",
+                  trigger = "click",  options = NULL)
+              ),
               column(6, verbatimTextOutput(paste("selection", i, sep="_")), style = 'padding: 15px 10px 0px 10px;'),
               column(6, align = "center",
                 sliderInput(paste("fdr", i, sep="_"), h3("Select FDR threshold", align = "center"),
                   min = 0.05, max = 0.5, value = 0.15))),
-            fluidRow(
+            fluidRow(align = "center",
               column(6, plotly::plotlyOutput(paste("volcanoPlot", i, sep="_"))),
               column(6,
+                div(style="display:inline-block;vertical-align:top;",
+                  fluidRow(
+                    column(12,
+                      autocomplete_input(paste("variable_name", i, sep="_"), "Type variable name:",
+                        colnames(getOmicsData()[[i]]), max_options = ncol(getOmicsData()[[i]])))
+                  )),
                 plotly::plotlyOutput(paste("boxplot", i, sep="_"))
               )),
             fluidRow(column(8, h4(textOutput(paste("statement", i, sep="_")))),
@@ -446,7 +460,17 @@ function(input, output, session) {
             req(input[[paste("fdr", i, sep="_")]])
             req(input[[paste("comparison", i, sep="_")]])
             req(input[[paste("deTest", i, sep="_")]])
+
             eset <- getOmicsData()[[i]]
+            if(any(log2(eset) < 0)){
+              updateRadioButtons(session, paste("deTest", i, sep="_"),
+                label = "Test:",
+                choices = c("OLS" = "ols", "LIMMA" = "limma"),
+                selected = "limma",
+                inline = TRUE
+              )
+            }
+
             selectedCoef <- which(levels(response) == sapply(strsplit(input[[paste("comparison", i, sep="_")]], " vs. "), function(i){ i[[2]]}))
             req(length(selectedCoef) == 1)
 
@@ -481,38 +505,45 @@ function(input, output, session) {
                   yaxis = list(title = "-log<sub>10</sub>(P-value)"))
             })
 
-            # selected feature on volcano plot
-            output[[paste("selection", i, sep="_")]] <- renderPrint({
-              s <- event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))
-              if (length(s) == 0) {
-                "Click on a point on the volcano plot"
-              } else {
-                cat(paste("You selected:", s$key, "\n\n"));
-                cat(paste("Fold-change = ", signif(s$x, 3), "\n P-value = ", signif(10^-s$y, 3)))
-              }
+            variable_name <- reactiveValues(selected = colnames(eset)[1])
+            observe({
+              variable_name$selected <- unlist(event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))$key)
+            })
+            observeEvent(input[[paste("variable_name", i, sep="_")]], {
+              variable_name$selected <- input[[paste("variable_name", i, sep="_")]]
             })
 
             # feature plot
             output[[paste("boxplot", i, sep="_")]] <- renderPlotly({
-              s <- event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))
-              if (length(s)) {
-                var <- unlist(s[["key"]])
-                options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
-                ggplotly(data.frame(x = response, y = eset[, var]) %>%
+              if(variable_name$selected %in% colnames(eset)){
+                ggplotly(data.frame(x = response, y = eset[, variable_name$selected]) %>%
                     ggplot(aes(x = x, y = y, fill = x)) +
                     geom_violin(trim=FALSE) +
-                    geom_point(position = position_dodge(width = 0.1)) +
-                    # geom_dotplot(binaxis='y', stackdir='center', dotsize=1) +
                     xlab(input$responseVar) +
-                    ylab(var) +
-                    ggtitle(paste(var, " vs. ", input$responseVar)) +
+                    ylab(variable_name$selected) +
+                    geom_jitter(shape=16, position=position_jitter(0.2)) +
+                    ggtitle(paste(variable_name$selected, " vs. ", input$responseVar)) +
                     theme_classic() +
                     theme(legend.position = "none") +
                     scale_fill_manual(values=groupColors[1:length(unique(response))])
                 )
               } else {
-                plotly_empty()
+                omicsBioAnalytics::empty_plot("Select point or type variable name.")
               }
+            })
+
+            # selected varibales
+            observeEvent(input[[paste("variable_name", i, sep="_")]],{
+              output[[paste("selection", i, sep="_")]] <- renderPrint({
+                # detect triggers
+                if (!(variable_name$selected %in% colnames(eset))) {
+                  "Click on a point on the volcano plot"
+                } else {
+                  # cat(paste("You selected:", s$key, "\n\n"));
+                  # cat(paste("Fold-change = ", signif(s$x, 3), "\n P-value = ", signif(10^-s$y, 3)))
+                  filter(top, FeatureName == variable_name$selected)[, c("FeatureName", "logFC", "AveExpr", "P.Value", "adj.P.Val")]
+                }
+              })
             })
 
             # statement
@@ -542,7 +573,7 @@ function(input, output, session) {
               # dbs <- listEnrichrDbs()
 
               # Run Pathway Analysis using EnrichR
-              if(length(all) > 0){
+              if(length(all) > 1){
                 # enrichment analysis for all genes/proteins
                 enrichedAll <- enrichr(names(all), pathwaydbs)
                 print(head(do.call(rbind, enrichedAll)))
@@ -560,7 +591,7 @@ function(input, output, session) {
               }
               # plot heatmap of enriched pathway
               output[[paste("pathwayEnrichment", i, sep="_")]] <- renderPlotly({
-                if(nrow(edgesGsetAll) > 0 & i %in% performPathwayAnalysis()){
+                if(nrow(edgesGsetAll) > 1 & i %in% performPathwayAnalysis()){
                   options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
                   ggplotly(
                     drugHeatmap(fc = all,
@@ -568,18 +599,19 @@ function(input, output, session) {
                       col = c("#F8766D", "#619CFF"), datasetName = i, GeneSetName = "Pathways")
                   )
                 } else {
-                  return(NULL)
+                  omicsBioAnalytics::empty_plot(paste0("No enriched pathways at an FDR = ", input[[paste("fdr", i, sep="_")]]))
                 }
               })
 
               # Run EnrichR for drug enrichment analysis
-              if(length(up) > 0){
+              if(length(up) > 1){
                 # enrichment analysis for up-regulated genes/proteins
                 enrichedUp <- enrichr(names(up), "LINCS_L1000_Chem_Pert_down")
                 edgesPertUp <- do.call(rbind, enrichedUp) %>%
                   dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
                   dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
-
+                print("edgesPertUp")
+                print(edgesPertUp)
                 edgesPertUp_list <- strsplit(edgesPertUp$Genes, ";")
                 names(edgesPertUp_list) <- edgesPertUp$Term
 
@@ -588,7 +620,7 @@ function(input, output, session) {
               } else {
                 edgesPertUp <- data.frame(msg = "No pathways were identified")
               }
-              if(length(down) > 0){
+              if(length(down) > 1){
                 # enrichment analysis for down-regulated genes/proteins
                 enrichedDown <- enrichr(names(down), "LINCS_L1000_Chem_Pert_up")
                 edgesPertDown <- do.call(rbind, enrichedDown) %>%
@@ -606,7 +638,7 @@ function(input, output, session) {
 
               # plot heatmaps for enriched drugs
               output[[paste("drugEnrichmentUp", i, sep="_")]] <- renderPlotly({
-                if(nrow(edgesPertUp) > 0 & i %in% performPathwayAnalysis()){
+                if(nrow(edgesPertUp) > 1 & i %in% performPathwayAnalysis()){
                   options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
                   ggplotly(
                     drugHeatmap(fc = up,
@@ -614,12 +646,12 @@ function(input, output, session) {
                       col = "#F8766D", datasetName = i, GeneSetName = "LINCS L1000 Chemical Perturbations Down")
                   )
                 } else {
-                  return(NULL)
+                  omicsBioAnalytics::empty_plot(paste0("No enriched compounds at an FDR = ", input[[paste("fdr", i, sep="_")]]))
                 }
               })
 
               output[[paste("drugEnrichmentDown", i, sep="_")]] <- renderPlotly({
-                if(nrow(edgesPertDown) > 0 & i %in% performPathwayAnalysis()){
+                if(nrow(edgesPertDown) > 1 & i %in% performPathwayAnalysis()){
                   options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
                   ggplotly(
                     drugHeatmap(fc = down,
@@ -627,7 +659,7 @@ function(input, output, session) {
                       col = "#619CFF", datasetName = i, GeneSetName = "LINCS L1000 Chemical Perturbations Up")
                   )
                 } else {
-                  return(NULL)
+                  omicsBioAnalytics::empty_plot(paste0("No enriched compounds at an FDR = ", input[[paste("fdr", i, sep="_")]]))
                 }
               })
 
