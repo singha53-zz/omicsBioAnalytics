@@ -406,9 +406,19 @@ function(input, output, session) {
               column(6,
                 div(style="display:inline-block;vertical-align:top;",
                   fluidRow(
-                    column(12,
+                    column(8,
                       autocomplete_input(paste("variable_name", i, sep="_"), "Type variable name:",
-                        colnames(getOmicsData()[[i]]), max_options = ncol(getOmicsData()[[i]])))
+                        colnames(getOmicsData()[[i]]), max_options = ncol(getOmicsData()[[i]]))),
+                    column(4,
+                      actionButton(paste("dePlotOps_button", i, sep="_"), "Plot options"),
+                      bsModal(paste("dePlotOps", i, sep="_"), "Plot options", paste("dePlotOps_button", i, sep="_"), size = "large",
+                        sliderInput(paste("dePlotOps_hjust", i, sep="_"), "horizontal justification:", min = 0, max = 1, value = 0.5),
+                        sliderInput(paste("dePlotOps_vjust", i, sep="_"), "vertical justification:", min = 0, max = 1, value = 0.5),
+                        sliderInput(paste("dePlotOps_xAngle", i, sep="_"), "x-axis text angle:", min = 0, max = 180, value = 0),
+                        sliderInput(paste("dePlotOps_xSize", i, sep="_"), "x-axis text size:", min = 5, max = 20, value = 7),
+                        sliderInput(paste("dePlotOps_ySize", i, sep="_"), "y-axis text size:", min = 5, max = 20, value = 7)
+                        )
+                      )
                   )),
                 plotly::plotlyOutput(paste("boxplot", i, sep="_"))
               )),
@@ -424,9 +434,23 @@ function(input, output, session) {
             conditionalPanel(
               condition = paste0("output.performPathwayAnalysis.indexOf('", i, "') != -1"),
             fluidRow(align = 'center',
-              column(12, h1("Geneset Enrichment Analysis"),
-                sliderInput(paste("enrichmentSlider", i, sep="_"), "Select number of pathways:", min=0, max=10, value=5, step=2),
-                plotly::plotlyOutput(paste("pathwayEnrichment", i, sep="_")),
+              h1("Geneset Enrichment Analysis"),
+              column(8, sliderInput(paste("enrichmentSlider", i, sep="_"), "Select number of pathways:", min=0, max=10, value=5, step=2)),
+              column(4,
+                actionButton(paste("pathwayEnrichmentOps_button", i, sep="_"), "Plot options"),
+                bsModal(paste("pathwayEnrichmentOps", i, sep="_"), "Plot options", paste("pathwayEnrichmentOps_button", i, sep="_"), size = "large",
+                  sliderInput(paste("pathwayEnrichmentOps_hjust", i, sep="_"), "horizontal justification:", min = 0, max = 1, value = 0.5),
+                  sliderInput(paste("pathwayEnrichmentOps_vjust", i, sep="_"), "vertical justification:", min = 0, max = 1, value = 0.5),
+                  sliderInput(paste("pathwayEnrichmentOps_xAngle", i, sep="_"), "x-axis text angle:", min = 0, max = 180, value = 0),
+                  sliderInput(paste("pathwayEnrichmentOps_xSize", i, sep="_"), "x-axis text size:", min = 5, max = 20, value = 7),
+                  sliderInput(paste("pathwayEnrichmentOps_ySize", i, sep="_"), "y-axis text size:", min = 5, max = 20, value = 7)
+                )
+              ),
+              column(12,
+                # sliderInput(paste("enrichmentSlider", i, sep="_"), "Select number of pathways:", min=0, max=10, value=5, step=2),
+                # plotly::plotlyOutput(paste("pathwayEnrichment", i, sep="_")),
+                plotOutput(paste("pathwayEnrichment", i, sep="_"), click = hoverOpts(id = paste("pathwayEnrichment_plot_click", i, sep="_"))),
+                verbatimTextOutput(paste("pathwayEnrichment_info", i, sep="_")),
                 downloadButton(paste("edgesGsetAll", i, sep="_"), label = HTML("<span style='font-size:1em;'>Download<br/>Enriched Pathways</span>")))),
               fluidRow(align = 'center',
                 column(6, h1(paste0("Drugs that reverse expression of up-regulated ", i)),
@@ -507,11 +531,15 @@ function(input, output, session) {
 
             variable_name <- reactiveValues(selected = colnames(eset)[1])
             observe({
-              variable_name$selected <- unlist(event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))$key)
+              s <- unlist(event_data("plotly_click", source = paste("volcanoPlot", i, sep="_"))$key)
+              if(length(s) >0){
+                variable_name$selected <- s
+              }
             })
             observeEvent(input[[paste("variable_name", i, sep="_")]], {
               variable_name$selected <- input[[paste("variable_name", i, sep="_")]]
             })
+
 
             # feature plot
             output[[paste("boxplot", i, sep="_")]] <- renderPlotly({
@@ -525,7 +553,12 @@ function(input, output, session) {
                     ggtitle(paste(variable_name$selected, " vs. ", input$responseVar)) +
                     theme_classic() +
                     theme(legend.position = "none") +
-                    scale_fill_manual(values=groupColors[1:length(unique(response))])
+                    scale_fill_manual(values=groupColors[1:length(unique(response))]) +
+                    theme(axis.text.x = element_text(angle = input[[paste("dePlotOps_xAngle", i, sep="_")]],
+                      hjust = input[[paste("dePlotOps_hjust", i, sep="_")]],
+                      vjust = input[[paste("dePlotOps_vjust", i, sep="_")]],
+                      size = input[[paste("dePlotOps_xSize", i, sep="_")]]),
+                      axis.text.y = element_text(size = input[[paste("dePlotOps_ySize", i, sep="_")]]))
                 )
               } else {
                 omicsBioAnalytics::empty_plot("Select point or type variable name.")
@@ -576,10 +609,10 @@ function(input, output, session) {
               if(length(all) > 1){
                 # enrichment analysis for all genes/proteins
                 enrichedAll <- enrichr(names(all), pathwaydbs)
-                print(head(do.call(rbind, enrichedAll)))
                 edgesGsetAll <- do.call(rbind, enrichedAll) %>%
                   dplyr::mutate(database = rep(names(enrichedAll), sapply(enrichedAll, nrow))) %>%
                   dplyr::filter(Adjusted.P.value < input[[paste("fdr", i, sep="_")]])
+                edgesGsetAll$int <- as.numeric(sapply(strsplit(as.character(edgesGsetAll$Overlap), "/"), function(i) i[1]))
 
                 edgesGsetAll_list <- strsplit(edgesGsetAll$Genes, ";")
                 names(edgesGsetAll_list) <- edgesGsetAll$Term
@@ -590,18 +623,47 @@ function(input, output, session) {
                 edgesGsetAll <- data.frame(msg = "No pathways were identified")
               }
               # plot heatmap of enriched pathway
-              output[[paste("pathwayEnrichment", i, sep="_")]] <- renderPlotly({
+              # output[[paste("pathwayEnrichment", i, sep="_")]] <- renderPlotly({
+              #   if(nrow(edgesGsetAll) > 1 & i %in% performPathwayAnalysis()){
+              #     options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
+              #     ggplotly(
+              #       drugHeatmap(fc = all,
+              #         genesetList = edgesGsetAll_list[1:input[[paste("enrichmentSlider", i, sep="_")]]],
+              #         col = c("#F8766D", "#619CFF"), datasetName = i, GeneSetName = "Pathways")
+              #     )
+              #   } else {
+              #     omicsBioAnalytics::empty_plot(paste0("No enriched pathways at an FDR = ", input[[paste("fdr", i, sep="_")]]))
+              #   }
+              # })
+              print(edgesGsetAll)
+              output[[paste("pathwayEnrichment", i, sep="_")]] <- renderPlot({
                 if(nrow(edgesGsetAll) > 1 & i %in% performPathwayAnalysis()){
                   options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
-                  ggplotly(
-                    drugHeatmap(fc = all,
-                      genesetList = edgesGsetAll_list[1:input[[paste("enrichmentSlider", i, sep="_")]]],
-                      col = c("#F8766D", "#619CFF"), datasetName = i, GeneSetName = "Pathways")
-                  )
+                  edgesGsetAll[1:input[[paste("enrichmentSlider", i, sep="_")]], ] %>%
+                    mutate(Term = factor(as.character(Term), as.character(Term))) %>%
+                  ggplot(aes(x = Term, y = int, color = Term)) + geom_point(size = 5) +
+                    geom_segment(aes(xend = Term, color = Term), yend = 0, size = 1) +
+                    scale_y_log10() +
+                    ylab("Overlap") +
+                    theme_classic() +
+                    theme(legend.position = "none") +
+                    scale_fill_manual(values=groupColors[1:length(unique(response))]) +
+                    theme(axis.text.x = element_text(angle = input[[paste("pathwayEnrichmentOps_xAngle", i, sep="_")]],
+                      hjust = input[[paste("pathwayEnrichmentOps_hjust", i, sep="_")]],
+                      vjust = input[[paste("pathwayEnrichmentOps_vjust", i, sep="_")]],
+                      size = input[[paste("pathwayEnrichmentOps_xSize", i, sep="_")]]),
+                      axis.text.y = element_text(size = input[[paste("pathwayEnrichmentOps_ySize", i, sep="_")]]))
                 } else {
                   omicsBioAnalytics::empty_plot(paste0("No enriched pathways at an FDR = ", input[[paste("fdr", i, sep="_")]]))
                 }
               })
+              output[[paste("pathwayEnrichment_info", i, sep="_")]] <- renderPrint({
+                if(!is.null(input[[paste("pathwayEnrichment_plot_click", i, sep="_")]])){
+                  hover=input[[paste("pathwayEnrichment_plot_click", i, sep="_")]]
+                  print(nearPoints(edgesGsetAll, hover, threshold = 5, maxpoints = 1)[,c("Term", "Overlap", "P.value", 'Adjusted.P.value', "Genes", "database")])
+                }
+              })
+
 
               # Run EnrichR for drug enrichment analysis
               if(length(up) > 1){
