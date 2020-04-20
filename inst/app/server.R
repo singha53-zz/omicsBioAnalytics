@@ -60,7 +60,7 @@ function(input, output, session) {
       files <- NULL;
 
       #loop through the sheets
-      for (i in 1:length(hfDatasets)){
+      for (i in 1:length(hfDatasets)) {
         #write each sheet to a csv file, save the name
         fileName <- paste0(names(hfDatasets)[i], ".csv")
         write.table(hfDatasets[[i]], fileName, sep = ',', row.names = FALSE)
@@ -78,7 +78,7 @@ function(input, output, session) {
       files <- NULL;
 
       #loop through the sheets
-      for (i in 1:length(covid19)){
+      for (i in 1:length(covid19)) {
         #write each sheet to a csv file, save the name
         fileName <- paste0(names(covid19)[i], ".csv")
         write.table(covid19[[i]], fileName, sep = ',', row.names = FALSE)
@@ -133,7 +133,7 @@ function(input, output, session) {
       })
 
       fit <- reactive({
-        if(input$test == "lr"){
+        if(input$test == "lr") {
           lm(y~x, data = DF())
         } else {
           kruskal.test(y~x, data = DF())
@@ -162,7 +162,7 @@ function(input, output, session) {
           ggtitle(title()) +
           theme_classic() +
           theme(legend.position = "none") +
-          scale_fill_manual(values=groupColors[1:nlevels(response)])
+          scale_fill_manual(values = group_colors[1:nlevels(response)])
           )
       })
 
@@ -309,59 +309,23 @@ function(input, output, session) {
     output$eda = renderUI({
       myTabs <- lapply(names(getOmicsData()), function(i){
         tabPanel(i,
-          fluidRow(column(
-            4,
-            sliderInput(
-              paste("ncomp", i, sep="_"),
-              h3("Number of components"),
-              min = 2,
-              max = 5,
-              value = 1
-            ),
-            h3("PCA component plots", align = "center")
-          ), column(
-            8,
-            h3("Percentage variation explained", align = "center"),
-            verbatimTextOutput(paste("varExp", i, sep="_"))
-          )),
-          fluidRow(column(
-            4,
-            plotOutput(paste("pcaPlot", i, sep="_"), width = "100%")
-          ),
-            column(
-              8,
-              h3("Which metadata variables are associated with major sources of variation in the expression data?", align = "center"),
-              plotly::plotlyOutput(paste("pcClinVarPlot", i, sep="_"), width = "100%")
-            ))
+          omicsBioAnalytics::eda_ui(paste0("eda", i, sep = "_"))
         )
       })
-
       do.call(tabsetPanel, myTabs)
     })
 
     ## Backend
     lapply(names(getOmicsData()),
       function(i) {
-        observeEvent(input[[paste("ncomp", i, sep="_")]], {
-          pcs = prcomp(
-              getOmicsData()[[i]],
-              scale. = TRUE,
-              center = TRUE,
-              rank. = input[[paste("ncomp", i, sep="_")]]
-            )
-          output[[paste("varExp", i, sep="_")]] <- renderPrint({summary(pcs)})
-          output[[paste("pcaPlot", i, sep="_")]] <- renderPlot({
-            omicsBioAnalytics::pcaPairs(pcs = pcs, y = response, col=groupColors[1:nlevels(response)])
-          })
-          output[[paste("pcClinVarPlot", i, sep="_")]] <- renderPlotly({
-            ggplotly(pcaHeatmap(pcs = pcs$x, demo = demo)) %>%
-              layout(legend = list(
-                orientation = "h",
-                x = 0.1,
-                y = -1
-              ))
-          })
-        })
+        vars <- callModule(module = omicsBioAnalytics::pca_mod_server, paste0("eda", i, sep = "_"))
+        callModule(module = omicsBioAnalytics::eda_server,
+          id = paste0("eda", i, sep = "_"),
+          demo = demo,
+          dataset = getOmicsData()[[i]],
+          response = response,
+          group_colors = group_colors,
+          vars = vars)
       }
     )
     })
@@ -553,7 +517,7 @@ function(input, output, session) {
                     ggtitle(paste(variable_name$selected, " vs. ", input$responseVar)) +
                     theme_classic() +
                     theme(legend.position = "none") +
-                    scale_fill_manual(values=groupColors[1:length(unique(response))]) +
+                    scale_fill_manual(values = group_colors[1:length(unique(response))]) +
                     theme(axis.text.x = element_text(angle = input[[paste("dePlotOps_xAngle", i, sep="_")]],
                       hjust = input[[paste("dePlotOps_hjust", i, sep="_")]],
                       vjust = input[[paste("dePlotOps_vjust", i, sep="_")]],
@@ -647,7 +611,7 @@ function(input, output, session) {
                     ylab("Overlap") +
                     theme_classic() +
                     theme(legend.position = "none") +
-                    scale_fill_manual(values=groupColors[1:length(unique(response))]) +
+                    scale_fill_manual(values = group_colors[1:length(unique(response))]) +
                     theme(axis.text.x = element_text(angle = input[[paste("pathwayEnrichmentOps_xAngle", i, sep="_")]],
                       hjust = input[[paste("pathwayEnrichmentOps_hjust", i, sep="_")]],
                       vjust = input[[paste("pathwayEnrichmentOps_vjust", i, sep="_")]],
@@ -1112,7 +1076,7 @@ function(input, output, session) {
             ellipseBy = "Group",
             graphType = "Scatter3D",
             colorScheme = "Set2",
-            colors = groupColors[1:nlevels(subset_response)],
+            colors = group_colors[1:nlevels(subset_response)],
             xAxisTitle = paste0("PC1 (", round(100*summary(pc)$importance["Proportion of Variance","PC1"], 0), "%)"),
             yAxisTitle = paste0("PC2 (", round(100*summary(pc)$importance["Proportion of Variance","PC2"], 0), "%)"),
             zAxisTitle = paste0("PC3 (", round(100*summary(pc)$importance["Proportion of Variance","PC3"], 0), "%)"))
@@ -1122,7 +1086,7 @@ function(input, output, session) {
             varAnnot  = grouping,
             colorBy   = "Group",
             colorScheme = "Set2",
-            colors = groupColors[1:nlevels(subset_response)],
+            colors = group_colors[1:nlevels(subset_response)],
             graphType="ScatterBubble2D",
             size=list(1)
           )
@@ -1140,7 +1104,7 @@ function(input, output, session) {
             graphType="Boxplot",
             jitter=TRUE,
             colorScheme = "Set2",
-            colors = groupColors[1:nlevels(subset_response)],
+            colors = group_colors[1:nlevels(subset_response)],
             legendBox=FALSE,
             plotByVariable=TRUE,
             showBoxplotOriginalData=TRUE,
@@ -1164,12 +1128,12 @@ function(input, output, session) {
         rownames(dataset) <- rownames(grouping) <- paste0("subj", 1:nrow(grouping))
 
         pc <- prcomp(dataset, scale. = TRUE, center = TRUE)
-        canvasXpress(data      = pc$x[, 1:3], digits = 50,
+        canvasXpress(data = pc$x[, 1:3], digits = 50,
           varAnnot  = grouping,
           colorBy   = "Group",
           ellipseBy = "Group",
           colorScheme = "Set2",
-          colors = groupColors[1:nlevels(subset_response)],
+          colors = group_colors[1:nlevels(subset_response)],
           graphType = "Scatter3D",
           xAxisTitle = paste0("PC1 (", round(100*summary(pc)$importance["Proportion of Variance","PC1"], 0), "%)"),
           yAxisTitle = paste0("PC2 (", round(100*summary(pc)$importance["Proportion of Variance","PC2"], 0), "%)"),
@@ -1258,8 +1222,8 @@ function(input, output, session) {
           data=y,
           smpAnnot=x,
           varAnnot=z,
-          colors = groupColors[1:nlevels(subset_response)],
-          colorKey=list(dataset=barColors[names(ensemblePanel)], Group=groupColors[1:nlevels(subset_response)]),
+          colors = group_colors[1:nlevels(subset_response)],
+          colorKey=list(dataset=barColors[names(ensemblePanel)], Group = group_colors[1:nlevels(subset_response)]),
           colorSpectrum=list("magenta", "blue", "black", "red", "gold"),
           colorSpectrumZeroValue=0,
           graphType="Heatmap",
@@ -1540,7 +1504,7 @@ function(input, output, session) {
   # Voice-enabled analytics
   #
   ################################################################################
-  if(alexaSkillExists){
+  if(alexa_skill_exists){
     observeEvent(input$alexa, {
       # # req(input$demo); req(input$omicsData);
       # errMsgAlexa <- reactive({validate(
@@ -1566,7 +1530,7 @@ function(input, output, session) {
 
           dynamodbAttr <- list()
           # analyze demo data and save images to S3
-          dynamodbAttr$ds <- omicsBioAnalytics::alexaMetadata(demo, group = responseColumnName, trim = 0.5, format = "APL")
+          dynamodbAttr$ds <- omicsBioAnalytics::alexa_metadata(demo, group = responseColumnName, trim = 0.5, format = "APL")
 
           # demo <- heartFailure$demo
           # omicsData <- heartFailure$omicsData[c("cells", "holter", "proteins")]
@@ -1577,11 +1541,11 @@ function(input, output, session) {
           # Perform Differential Expression Analysis and save images to S3
           dynamodbAttr$dexp <- omicsBioAnalytics::alexaDexp(demo, group = responseColumnName, omicsData)
 
-          # save dynamodb attributes to dynamodbTableName (set in global.R) for userID (set in global.R)
-          omicsBioAnalytics::put_item(dynamodbTableName, list(id = userID, phoneNumber= jsonlite::toJSON(dynamodbAttr)))
+          # save dynamodb attributes to dynamodb_table_name (set in global.R) for user_id (set in global.R)
+          omicsBioAnalytics::put_item(dynamodb_table_name, list(id = user_id, phoneNumber= jsonlite::toJSON(dynamodbAttr)))
         })
         output$msg <- renderText({
-          paste0("If you have an Alexa device please say, 'Alexa, start omics bioanalytics' to begin. \n Please use the following id to access your analysis when prompted by Alexa: ", userID)
+          paste0("If you have an Alexa device please say, 'Alexa, start omics bioanalytics' to begin. \n Please use the following id to access your analysis when prompted by Alexa: ", user_id)
         })
     })
   } else {

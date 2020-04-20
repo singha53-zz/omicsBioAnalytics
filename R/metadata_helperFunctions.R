@@ -209,6 +209,6 @@ computeDescriptiveStats = function(demo, group = NULL, trim = 0.5, format){
     rbind(cont, cat)
   } else {
     list(apl = append(cont, cat),
-         varType = c(rep("continuous", length(cont)), rep("categorical", length(cat))))
+      var_type = c(rep("continuous", length(cont)), rep("categorical", length(cat))))
   }
 }

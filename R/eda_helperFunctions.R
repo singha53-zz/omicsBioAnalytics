@@ -7,7 +7,7 @@ pcaPairs = function(pcs,y,col){
   my_settings <- list(superpose.symbol=list(alpha = rep(1, 9)), col=col,
     cex=rep(0.8, 9), fill= col, font = rep(1, 9), pch=pch_vector)
   trellis.par.set(my_settings)
-  caret::featurePlot(x = pcs$x,
+  caret::featurePlot(x = pcs,
     y = y,
     plot = "ellipse",
     auto.key = list(columns = 2))

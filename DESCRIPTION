@@ -12,7 +12,7 @@ Imports:
  shinyjs (>= 1.1),
  shinydashboard (>= 0.7.1),
  shinyBS (>= 0.61),
- dqshiny (> 0.0.3),
+ dqshiny (>= 0.0.3),
  dplyr (>= 0.7.1),
  tidyr (>= 0.8.3),
  RColorBrewer (>= 1.1-2),
