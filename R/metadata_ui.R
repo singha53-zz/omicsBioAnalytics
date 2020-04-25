@@ -33,11 +33,13 @@ metadata <- function() {
           shiny::h3(shiny::textOutput("testTitle")),
           shiny::verbatimTextOutput("test"),
           shiny::fluidRow(shiny::column(6, shiny::h6(shiny::textOutput("lmAssumptions"))),
-            shiny::column(6, shiny::actionButton("lr", "linear regression assumptions", icon = shiny::icon("table")),
-              shinyBS::bsModal("hypothesisTests", "Assessment of linear regression assumptions.", "lr", size = "large",
+            shiny::column(6, shiny::actionButton("lr",
+              "linear regression assumptions", icon = shiny::icon("table")),
+              shinyBS::bsModal("hypothesisTests",
+                "Assessment of linear regression assumptions.", "lr", size = "large",
                 DT::dataTableOutput("tbl")))),
           shiny::h3("Conclusion"),
-          shiny::tags$style(type = 'text/css', '#conclusion {color: red;}'),
+          shiny::tags$style(type = "text/css", "#conclusion {color: red;}"),
           shiny::textOutput("conclusion")
         ))
     ),
@@ -53,13 +55,16 @@ metadata <- function() {
         shiny::column(6,
           shiny::h3(shiny::textOutput("chisqTitle")),
           shiny::br(),
-          shiny::fluidRow(shiny::column(6, shiny::h4("Observed counts"), shiny::uiOutput("obsCounts")),
-            shiny::column(6, shiny::h4("Observed frequency"), shiny::uiOutput("obsFreq"))),
+          shiny::fluidRow(shiny::column(6, shiny::h4("Observed counts"),
+            shiny::uiOutput("obsCounts")),
+            shiny::column(6, shiny::h4("Observed frequency"),
+              shiny::uiOutput("obsFreq"))),
           shiny::br(),
           shiny::h4("Chi-square test"),
           shiny::verbatimTextOutput("chisqTest"),
           shiny::br(),
-          shiny::tags$style(type = "text/css", "#chisqConclusion {color: red;}"),
+          shiny::tags$style(type = "text/css",
+            "#chisqConclusion {color: red;}"),
           shiny::textOutput("chisqConclusion"))
       )
     )

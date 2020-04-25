@@ -23,6 +23,11 @@ sidebar <- shinydashboard::dashboardSidebar(
         icon = icon("flask")
       ),
       shinydashboard::menuItem(
+        "Analysis",
+        tabName = "analysis",
+        icon = icon("bar-chart-o")
+      ),
+      shinydashboard::menuItem(
         "Generate Report",
         tabName = "report",
         icon = icon("clipboard-list")
@@ -49,12 +54,14 @@ sidebar <- shinydashboard::dashboardSidebar(
         "Analysis",
         tabName = "analysis",
         icon = icon("bar-chart-o"),
-        shinydashboard::menuSubItem("Metadata", tabName = "subitem1"),
+        shinydashboard::menuSubItem("Metadata Analysis",
+          tabName = "subitem1"),
         shinydashboard::menuSubItem("Exploratory Data Analysis",
           tabName = "subitem2"),
         shinydashboard::menuSubItem("Differential Expression",
           tabName = "subitem3"),
-        shinydashboard::menuSubItem("Biomarker Panels", tabName = "subitem4")
+        shinydashboard::menuSubItem("Biomarker Panels",
+          tabName = "subitem4")
       ),
       shinydashboard::menuItem(
         "Generate Report",
@@ -102,10 +109,10 @@ body <- shinydashboard::dashboardBody(
         ),
         shinydashboard::tabItem(
           tabName = "data",
-          omicsBioAnalytics::dataUpload()
+          omicsBioAnalytics::data_upload_ui("data_upload")
         ),
         shinydashboard::tabItem("subitem1",
-          omicsBioAnalytics::metadata()
+          omicsBioAnalytics::metadata_ui("metadata")
         ),
         shinydashboard::tabItem("subitem2",
           omicsBioAnalytics::eda()
@@ -114,7 +121,7 @@ body <- shinydashboard::dashboardBody(
           omicsBioAnalytics::dea()
         ),
         shinydashboard::tabItem("subitem4",
-          omicsBioAnalytics::biomarkerDiscoveryUI()
+          omicsBioAnalytics::biomarker_discovery_analysis()
         ),
         shinydashboard::tabItem(
           tabName = "methods",
@@ -142,7 +149,7 @@ body <- shinydashboard::dashboardBody(
         ),
         shinydashboard::tabItem(
           tabName = "report",
-          omicsBioAnalytics::report_ui()
+          omicsBioAnalytics::report_ui("report")
         )
       )
     )

@@ -20,11 +20,6 @@ pvalue_heatmap_ui <- function(id) {
 #' @export
 pvalue_heatmap_server <- function(input, output, session, demo, pcs) {
   output$pca_clinvar <- plotly::renderPlotly({
-    ggplotly(pcaHeatmap(pcs = pcs, demo = demo)) %>%
-      layout(legend = list(
-        orientation = "h",
-        x = 0.1,
-        y = -1
-      ))
+    ggplotly(pcaHeatmap(pcs = pcs, demo = demo))
   })
 }

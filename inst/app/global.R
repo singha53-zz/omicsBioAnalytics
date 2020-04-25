@@ -21,6 +21,9 @@ suppressPackageStartupMessages(library("ggrepel"));
 
 ## Import data
 data("heartFailure")
+hf_datasets <- heartFailure$omicsData
+hf_datasets$demo <- heartFailure$demo
+
 data("covid19")
 data("pathwayDB")
 
@@ -44,7 +47,7 @@ group_colors <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
 
 # If Alexa Skill is setup already then change the flag below to TRUE
 alexa_skill_exists <- FALSE
-if(alexa_skill_exists) {
+if (alexa_skill_exists) {
   dynamodb_table_name <- Sys.getenv("TABLE_NAME")
   s3_bucket <- Sys.getenv("S3BUCKET")
   previous_workloads <- sapply(get_bucket(bucket = s3_bucket), function(i) {
@@ -52,7 +55,7 @@ if(alexa_skill_exists) {
   })
   user_id <- paste(sample(0:9, 7), collapse = "")
 
-  if(!(user_id %in% previous_workloads)) {
+  if (!(user_id %in% previous_workloads)) {
     flag <- FALSE
   }
 }
