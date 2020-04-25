@@ -35,9 +35,9 @@ data_upload_ui <- function(id) {
       shiny::column(6,
         shiny::h3("Or try these example datasets:", align = "left"),
         shiny::fluidRow(shiny::column(6,
-          customDownloadButton(ns("heart_failure"),
+          customDownloadButton("heart_failure",
             label = "Heart Failure", icon = shiny::icon("heart"))),
-          shiny::column(6, customDownloadButton(ns("covid19"),
+          shiny::column(6, customDownloadButton("covid19",
             label = "COVID-19", icon = shiny::icon("chart-line")))),
         shiny::fluidRow(shiny::column(6, "read paper: ",
           shiny::a("CJC 2019",
@@ -62,7 +62,7 @@ data_upload_ui <- function(id) {
           #337ab7; border-color: #2e6da4"),
         shinyBS::bsModal(ns("modal"),
           "Omics BioAnalytics Alexa Skill",
-          "alexa", size = "large",
+          ns("alexa"), size = "large",
           shiny::textOutput("msg"))),
       shiny::uiOutput(ns("errMsgAlexa"))
     )
