@@ -167,7 +167,7 @@ function(input, output, session) {
           demo <- isolate({data_upload_server_vars$get_demo_data()})
           responseColumnName <- isolate({data_upload_ui_vars$response_var()})
           responseRefLevel <- isolate({data_upload_ui_vars$ref_var()})
-          response <- isolate({relevel(factor(as.character(demo[, responseColumnName])), ref = input$refVar)})
+          response <- isolate({relevel(factor(as.character(demo[, responseColumnName])), ref = responseRefLevel)})
           omicsData <- isolate({getOmicsData()})
 
           dynamodbAttr <- list()
