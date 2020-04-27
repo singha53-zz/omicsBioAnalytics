@@ -35,9 +35,9 @@ data_upload_ui <- function(id) {
       shiny::column(6,
         shiny::h3("Or try these example datasets:", align = "left"),
         shiny::fluidRow(shiny::column(6,
-          customDownloadButton("heart_failure",
+          customDownloadButton(ns("heart_failure"),
             label = "Heart Failure", icon = shiny::icon("heart"))),
-          shiny::column(6, customDownloadButton("covid19",
+          shiny::column(6, customDownloadButton(ns("covid19"),
             label = "COVID-19", icon = shiny::icon("chart-line")))),
         shiny::fluidRow(shiny::column(6, "read paper: ",
           shiny::a("CJC 2019",
@@ -190,7 +190,7 @@ data_upload_server <- function(input, output, session,
       files <- NULL;
 
       # loop through the sheets
-      for (i in seq_len(heart_failure_data)) {
+      for (i in 1:length(heart_failure_data)) {
         #write each sheet to a csv file, save the name
         file_name <- paste0(names(heart_failure_data)[i], ".csv")
         write.table(heart_failure_data[[i]],
@@ -210,7 +210,7 @@ data_upload_server <- function(input, output, session,
       files <- NULL;
 
       #loop through the sheets
-      for (i in seq_len(covid19_data)) {
+      for (i in 1:length(covid19_data)) {
         #write each sheet to a csv file, save the name
         file_name <- paste0(names(covid19_data)[i], ".csv")
         write.table(covid19_data[[i]], file_name, sep = ",", row.names = FALSE)
