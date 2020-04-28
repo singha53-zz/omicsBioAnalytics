@@ -135,7 +135,7 @@ data_upload_server <- function(input, output, session,
   # Demographics data upload
   get_demo_data <- shiny::reactive({
     req(data_upload_ui_vars$demo())
-    demo_data <- read.csv(data_upload_ui_vars$demo()$datapath,
+    demo_data <- read.table(data_upload_ui_vars$demo()$datapath,
       header = TRUE, sep = data_upload_ui_vars$sep())
     demo_data
   })
@@ -143,10 +143,10 @@ data_upload_server <- function(input, output, session,
   # omics data upload
   get_omics_data <- shiny::reactive({
     req(data_upload_ui_vars$omics_data())
-    omics_data <- lapply(data_upload_ui_vars$omics_data()$datapath, read.csv,
+    omics_data <- lapply(data_upload_ui_vars$omics_data()$datapath, read.table,
       header = TRUE,
       sep = data_upload_ui_vars$sep())
-    names(omics_data) <- gsub(".csv|.tsv", "",
+    names(omics_data) <- gsub(".csv|.tsv|.txt", "",
       data_upload_ui_vars$omics_data()$name)
     omics_data
   })
