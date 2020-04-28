@@ -54,7 +54,8 @@ put_item <- function(
   if (!is.null(condition)) {
     bod$ConditionExpression <- condition
   }
-  out <- dynamoHTTP(verb = "POST", body = bod, target = "DynamoDB_20120810.PutItem")
+  out <- dynamo_http(verb = "POST", body = bod,
+    target = "DynamoDB_20120810.PutItem")
   if (return_value == "NONE") {
     return(NULL)
   } else {
@@ -63,19 +64,20 @@ put_item <- function(
 }
 
 #' @export
-#' @rdname dynamoHTTP
-dynamoHTTP <- function(
+#' @rdname dynamo_http
+dynamo_http <- function(
   verb = "GET",
   headers = list(),
   body = NULL,
   target,
   verbose = getOption("verbose", FALSE),
-  region = Sys.getenv("AWS_DEFAULT_REGION","us-east-1"),
+  region = Sys.getenv("AWS_DEFAULT_REGION", "us-east-1"),
   key = NULL,
   secret = NULL,
   session_token = NULL) {
   # locate and validate credentials
-  credentials <- aws.signature::locate_credentials(key = key, secret = secret, session_token = session_token, region = region, verbose = verbose)
+  credentials <- aws.signature::locate_credentials(key = key, secret = secret,
+    session_token = session_token, region = region, verbose = verbose)
   key <- credentials[["key"]]
   secret <- credentials[["secret"]]
   session_token <- credentials[["session_token"]]
@@ -83,17 +85,19 @@ dynamoHTTP <- function(
 
   # generate request signature
   d_timestamp <- format(Sys.time(), "%Y%m%dT%H%M%SZ", tz = "UTC")
-  url <- paste0("https://dynamodb.",region,".amazonaws.com")
-  Sig <- aws.signature::signature_v4_auth(
+  url <- paste0("https://dynamodb.", region, ".amazonaws.com")
+  sig <- aws.signature::signature_v4_auth(
     datetime = d_timestamp,
     region = region,
     service = "dynamodb",
     verb = verb,
     action = "/",
     query_args = NULL,
-    canonical_headers = list(host = paste0("dynamodb.",region,".amazonaws.com"),
+    canonical_headers = list(host = paste0("dynamodb.",
+      region, ".amazonaws.com"),
       `x-amz-date` = d_timestamp),
-    request_body = if (length(body)) jsonlite::toJSON(body, auto_unbox = TRUE) else "",
+    request_body = ifelse(length(body),
+      jsonlite::toJSON(body, auto_unbox = TRUE), ""),
     key = key,
     secret = secret,
     session_token = session_token,
@@ -101,25 +105,22 @@ dynamoHTTP <- function(
   # setup request headers
   headers[["x-amz-date"]] <- d_timestamp
   headers[["x-amz-target"]] <- target
-  headers[["x-amz-content-sha256"]] <- Sig$BodyHash
-  headers[["Authorization"]] <- Sig[["SignatureHeader"]]
+  headers[["x-amz-content-sha256"]] <- sig$BodyHash
+  headers[["Authorization"]] <- sig[["SignatureHeader"]]
   if (!is.null(session_token) && session_token != "") {
     headers[["x-amz-security-token"]] <- session_token
   }
-  H <- do.call(httr::add_headers, headers)
+  req_headers <- do.call(httr::add_headers, headers)
 
   # execute request
   if (verb == "GET") {
-    r <- httr::GET(url, H, body = body, encode = "json")
+    r <- httr::GET(url, req_headers, body = body, encode = "json")
   } else if (verb == "POST") {
-    print(url)
-    print(H)
-    print(body)
-    r <- httr::POST(url, H, body = body, encode = "json")
+    r <- httr::POST(url, req_headers, body = body, encode = "json")
   } else if (verb == "POST") {
-    r <- httr::PUT(url, H, body = body, encode = "json")
+    r <- httr::PUT(url, req_headers, body = body, encode = "json")
   } else if (verb == "DELETE") {
-    r <- httr::DELETE(url, H, encode = "json")
+    r <- httr::DELETE(url, req_headers, encode = "json")
     if (!httr::http_error(r)) {
       return(TRUE)
     }
@@ -128,13 +129,14 @@ dynamoHTTP <- function(
   if (httr::http_error(r)) {
     httr::warn_for_status(r)
     h <- httr::headers(r)
-    out <- try(structure(jsonlite::fromJSON(cont), headers = h, class = "aws_error"))
+    out <- try(structure(jsonlite::fromJSON(cont),
+      headers = h, class = "aws_error"))
     if (inherits(out, "try-error")) {
       out <- xml2::as_list(xml2::read_xml(cont))
     }
-    attr(out, "request_canonical") <- Sig$CanonicalRequest
-    attr(out, "request_string_to_sign") <- Sig$StringToSign
-    attr(out, "request_signature") <- Sig$SignatureHeader
+    attr(out, "request_canonical") <- sig$CanonicalRequest
+    attr(out, "request_string_to_sign") <- sig$StringToSign
+    attr(out, "request_signature") <- sig$SignatureHeader
   } else {
     out <- try(jsonlite::fromJSON(cont, simplifyDataFrame = FALSE))
     if (inherits(out, "try-error")) {

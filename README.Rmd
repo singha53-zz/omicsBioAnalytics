@@ -38,7 +38,7 @@ saveRDS("your-dynamodb-table-name", "TABLE_NAME.rds")
 
 ```r
 library(omicsBioAnalytics);
-omicsBioAnalytics::startApp()
+omicsBioAnalytics::start_app()
 ```
 
 ## Programming/Scripting Languages

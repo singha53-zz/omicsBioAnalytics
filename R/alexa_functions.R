@@ -1,10 +1,11 @@
 #' @export
 #' @rdname alexaMetadata
-alexaMetadata = function(demo, group, trim, format){
-  result <- omicsBioAnalytics::computeDescriptiveStats(demo, group, trim, format)
+alexa_metadata <- function(demo, group, trim, format) {
+  result <- omicsBioAnalytics::computeDescriptiveStats(demo,
+    group, trim, format)
   # save figures to tempdir()
-  mapply(function(var, varType){
-    if(varType == "continuous"){
+  mapply(function(var, var_type) {
+    if(var_type == "continuous") {
       metadataPlot <- data.frame(x = factor(demo[, group]), y = demo[, var]) %>%
         ggplot(aes(x = x, y = y, color = x)) +
         geom_violin(trim=FALSE) +
@@ -15,7 +16,7 @@ alexaMetadata = function(demo, group, trim, format){
         theme_bw()
       ggsave(paste0(tempdir(), "/", paste(userID, "ds", var, sep="-"), ".png"), metadataPlot, device = "png", width = 4, height = 4)
       put_object(paste0(tempdir(), "/", paste(userID, "ds", var, sep="-"), ".png"), bucket = S3Bucket)
-    } else if (varType == "categorical") {
+    } else if (var_type == "categorical") {
       df <- table(demo[, var], demo[, group])
       tg = gridExtra::tableGrob(df)
       h = grid::convertHeight(sum(tg$heights), "in", TRUE)
@@ -25,7 +26,7 @@ alexaMetadata = function(demo, group, trim, format){
     } else {
       NA
     }
-  }, var = names(result$apl), varType = result$varType)
+  }, var = names(result$apl), var_type = result$var_type)
   return(result$apl)
 }
 

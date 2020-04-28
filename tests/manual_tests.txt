@@ -1,0 +1,103 @@
+Manual testing for Shiny App using sample data
+- why? shinytest has too many hard to debug issues at the present time
+
+Go to: https://amritsingh.shinyapps.io/omicsBioAnalytics/
+
+Manual test Log:
+- April 27, 2020, all checks below PASSED; by Amrit Singh.
+
+Heart Failure
+
+objectives
+1) data upload
+- download heart failure data
+- upload demo for metadata and select the tab separator: if file is correct dropdown menus to select the response variable and reference level should appear; choose "hospitalizations" as the response variable and choose "No" as the reference level
+- upload cells, holder and proteins for the Omics data
+test 1
+- click Alexa button: "This functionality has been suspended..." message should appear
+- click the Run Analysis button: a inProgress followed by a notification to click on the Analysis tab should appear on the bottom right of the page.
+
+2) metadata analysis
+test 1
+- input: continuous variable: Brain_Natriuretic_Peptide, log transform variable: No, test: kruskal-wallis
+- output: p-value 0.1042, no linear regression assumptions button should be visible below the R-console verbatimTextOutput
+test 2
+- input: continuous variable: Brain_Natriuretic_Peptide, log transform variable: Yes, test: linear regression
+- output: p-value 0.07035683, linear regression assumptions button should be visible below the R-console verbatimTextOutput and should display tests for model assumptions
+test 3
+- input: categorical variable: Ischemia
+- output: p-value = 0.00127
+
+3) exploratory data analysis
+test 1
+- input: tab cells, ncomp = 5
+- output: std of PC5 is 1.096
+test 2
+- input: tab holter, ncomp = 4
+- output: association between PC3 and Diuretic is 0.01 < p < 0.05, download the heatmap
+test 4
+- input: tab proteins, ncomp = 2
+- output: association between PC3 and Diuretic is p < 0.01
+test 5
+- color of "No" points on the PCA SPLOM is gray
+- color of "Yes" points on the PCA SPLOM is gold
+
+4) differential expression analysis
+tab cells
+test 1
+- input: click on the only significant point
+- output: a violin plot of Monocytes should appear on the right and additional details should appear above the volcano plot.
+test 2
+- input: type "d" and select dendritic cells
+- output: select Dendritic.cells.activated from autocomplete dropdown menu and the corresponding plot should display
+tab holter
+test 1
+- input: click on the only significant point
+- output: a violin plot of HS_HR_AVE_DayToNight should appear on the right and additional details should appear above the volcano plot.
+test 2
+- input: click on the "Significant variables" button to see additional details for HS_HR_AVE_DayToNight
+- output: a modal should appear showing a datable of the significant features (red points on the volcano plot, in this case: HS_HR_AVE_DayToNight)
+tab proteins
+- input: type in MMP7 in the input box and click plot options and change x-axis and y-axis text size to 20.
+- output: MMP7 vs. hospitalizations should appear with axis labels with larger axis labels. p-value = 0.90
+geneses enrichment analysis
+- input: choose 11 pathways, plot options (vjust = 1, just = 1, xAngle = 40)
+- output: plot should be easier to read with non overlapping symbols
+drug enrichment
+unregulated proteins: "No enriched compounds at an FDR = 0.15", downloaded file should show no compounds
+down regulated proteins: 5 enriched compounds, downloaded file should show 5 compounds.
+- color of "No" points on the PCA SPLOM is gray
+- color of "Yes" points on the PCA SPLOM is gold
+
+
+5) biomarker analysis
+- clicking on "Build Penalized Regression Models!" should show two error messages.
+- input: select all datasets to build single and ensemble classifiers
+test 1
+- Performance tab: check if 4 ROCs are produced: 3 datasets and 1 ensemble
+test 2
+- Panels tab: check upset plot and bar plots of selected features; check if download button works
+test 3
+- PCA plots tab: test each radio button for PCA plots of each dataset; check if Ensemble PCA plot is displayed
+- color of "No" points on the plot is gray
+- color of "Yes" points on the plot is gold
+test 4
+- Heatmaps tab: test each radio button for PCA plots of each dataset; check if Ensemble PCA plot is displayed
+- color of "No" points on the heat map is gray
+- color of "Yes" points on the heat map is gold
+test 5: 
+- Biological significance of ensemble panel tab: Coronary aftery disease (square) is connected  to APM, APOA2, PON3, CRP, and CST3 (circles) at r=0.5 and FDR=0.05 cut-offs
+
+
+--------------------------------------------------------------------------------
+
+COVID-19 data
+objectives
+1) data upload
+2) metadata analysis
+3) differential expression analysis
+4) biomarker analysis
+
+--------------------------------------------------------------------------------
+
+Generate report
