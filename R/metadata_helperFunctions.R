@@ -53,6 +53,9 @@ splitData = function (demo, group = NULL, trim = 0.8) {
 
 
 summariseCatVar = function(demo, group, format){
+  if(ncol(demo) < 2){
+    return(NA)
+  }
   assertthat::assert_that(group %in% colnames(demo), msg = "group must be present in the demographics dataset.")
   nlvls <- sapply(demo[, setdiff(colnames(demo), group)], nlevels)
   pvals <- sapply(setdiff(colnames(demo), group), function(i){
@@ -99,6 +102,9 @@ summariseCatVar = function(demo, group, format){
 
 
 summariseContVar = function(demo, group, format){
+  if (ncol(demo) < 2) {
+    return(NA)
+  }
   assertthat::assert_that(group %in% colnames(demo), msg = "group must be present in the demographics dataset.")
   result <- t(apply(demo[, setdiff(colnames(demo), group)], 2, function(y){
     assertthat::assert_that(is.numeric(y), msg = "demo must only contain continuous variables.")
@@ -168,13 +174,12 @@ summariseContVar = function(demo, group, format){
 }
 #
 # library(omicsBioAnalytics)
-# data("heartFailure")
-# demo <- heartFailure$demo
-# group  <-  "hospitalizations"
+# data("covid19")
+# demo <- covid19$demo
+# group  <-  "group"
 # trim  <-  0.5
 # format = "apl"
 # result <- computeDescriptiveStats(demo, group, trim, format)
-
 # library(gridExtra)
 # library(grid)
 #
@@ -196,19 +201,40 @@ computeDescriptiveStats = function(demo, group = NULL, trim = 0.5, format){
   splitCatContVars <- splitData(demo, group, trim)
 
   print(paste0("Summarize categorical variables.", "\n"))
-  ## Chi-square test for categorical variables
-  cat <- summariseCatVar(demo = splitCatContVars$data.cat[, setdiff(colnames(splitCatContVars$data.cat), splitCatContVars$summary$rmCatVars)], group = group, format = format)
+  ## categorical variables
+  catDat <- splitCatContVars$data.cat[, setdiff(colnames(splitCatContVars$data.cat), splitCatContVars$summary$rmCatVars)]
 
-  ## t-test or wilcoxon for continuous variables
+  ## Chi-square test for categorical variables
+  cat <- summariseCatVar(demo = catDat, group = group, format = format)
+
+  ## continuous variables
   contDat <- splitCatContVars$data.cont
   contDat[, group] <- demo[, group]
   cont <- summariseContVar(demo = contDat, group = group, format = format)
 
   # kable(rbind(cont, cat), row.names = FALSE)
-  if(format == "dataframe"){
-    rbind(cont, cat)
+  if (format == "dataframe") {
+    if (is.data.frame(cont) & is.data.frame(cat)){
+      rbind(cont, cat)
+    } else if (is.data.frame(cont) & !is.data.frame(cat)) {
+      cont
+    } else if (!is.data.frame(cont) & is.data.frame(cat)) {
+      cat
+    } else {
+      NA
+    }
   } else {
-    list(apl = append(cont, cat),
-      var_type = c(rep("continuous", length(cont)), rep("categorical", length(cat))))
+    if (is.data.frame(cont) & is.data.frame(cat)){
+      list(apl = append(cont, cat),
+        var_type = c(rep("continuous", length(cont)), rep("categorical", length(cat))))
+    } else if (is.data.frame(cont) & !is.data.frame(cat)) {
+      list(apl = cont,
+        var_type = rep("continuous", length(cont)))
+    } else if (!is.data.frame(cont) & is.data.frame(cat)) {
+      list(apl = cat,
+        var_type = rep("categorical", length(cat)))
+    } else {
+      NA
+    }
   }
 }
