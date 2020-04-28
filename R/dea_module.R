@@ -217,10 +217,10 @@ dea_server <- function(input, output, session, datasetName, dataset, response, r
         output$topTable <- shiny::downloadHandler(
           filename = function() {
             paste("Significant_variables_OmicsBioAnalytics_", datasetName, "_FDR",
-              dea_ui_vars$fdr(), "_", Sys.Date(), ".csv", sep="")
+              dea_ui_vars$fdr(), "_", Sys.Date(), ".txt", sep="")
           },
           content = function(file) {
-            write.csv(subsetTop(), file, row.names = FALSE)
+            write.table(subsetTop(), file, row.names = FALSE, sep="\t")
           }
         )
 
@@ -440,28 +440,28 @@ dea_server <- function(input, output, session, datasetName, dataset, response, r
           output$edgesGsetAll <- downloadHandler(
             filename = function() {
               paste("EnrichmentAnalysis_OmicsBioAnalytics_", datasetName, "_FDR",
-                dea_ui_vars$fdr(), "_", Sys.Date(), ".csv", sep="")
+                dea_ui_vars$fdr(), "_", Sys.Date(), ".txt", sep="")
             },
             content = function(file) {
-              write.csv(edgesGsetAll, file, row.names = FALSE)
+              write.table(edgesGsetAll, file, row.names = FALSE, sep="\t")
             }
           )
           output$edgesPertUp <- downloadHandler(
             filename = function() {
               paste("Compounds_that_reverse_expression_of_upregulated_variables_OmicsBioAnalytics_", datasetName, "_FDR",
-                dea_ui_vars$fdr(), "_", Sys.Date(), ".csv", sep="")
+                dea_ui_vars$fdr(), "_", Sys.Date(), ".txt", sep="")
             },
             content = function(file) {
-              write.csv(edgesPertUp, file, row.names = FALSE)
+              write.table(edgesPertUp, file, row.names = FALSE, sep="\t")
             }
           )
           output$edgesPertDown <- downloadHandler(
             filename = function() {
               paste("Compounds_that_reverse_expression_of_downregulated_variables_OmicsBioAnalytics_", datasetName, "_FDR",
-                dea_ui_vars$fdr(), "_", Sys.Date(), ".csv", sep="")
+                dea_ui_vars$fdr(), "_", Sys.Date(), ".txt", sep="")
             },
             content = function(file) {
-              write.csv(edgesPertDown, file, row.names = FALSE)
+              write.txt(edgesPertDown, file, row.names = FALSE, sep="\t")
             }
           )
 

@@ -437,7 +437,7 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
 
     output$biomarkerPanels <- shiny::downloadHandler(
       filename = function() {
-        paste("BiomarkerPanels_multiomics_HFhospitalizations_", Sys.Date(), ".tsv", sep = "")
+        paste("BiomarkerPanels_multiomics_HFhospitalizations_", Sys.Date(), ".txt", sep = "")
       },
       content = function(file) {
         write.table(rbind(data.frame(dataset = rep(names(singlePanel), sapply(singlePanel, length)),
@@ -447,7 +447,7 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
             biomarkers = unlist(ensemblePanel),
             Panel = "Ensemble Panel")),
           file,
-          sep = ",",
+          sep = "\t",
           row.names = FALSE)
       }
     )

@@ -192,9 +192,9 @@ data_upload_server <- function(input, output, session,
       # loop through the sheets
       for (i in 1:length(heart_failure_data)) {
         #write each sheet to a csv file, save the name
-        file_name <- paste0(names(heart_failure_data)[i], ".csv")
+        file_name <- paste0(names(heart_failure_data)[i], ".txt")
         write.table(heart_failure_data[[i]],
-          file_name, sep = ",",
+          file_name, sep = "\t",
           row.names = FALSE)
         files <- c(file_name, files)
       }
@@ -211,9 +211,9 @@ data_upload_server <- function(input, output, session,
 
       #loop through the sheets
       for (i in 1:length(covid19_data)) {
-        #write each sheet to a csv file, save the name
-        file_name <- paste0(names(covid19_data)[i], ".csv")
-        write.table(covid19_data[[i]], file_name, sep = ",", row.names = FALSE)
+        #write each sheet to a txt file, save the name
+        file_name <- paste0(names(covid19_data)[i], ".txt")
+        write.table(covid19_data[[i]], file_name, sep = "\t", row.names = FALSE)
         files <- c(file_name, files)
       }
       #create the zip file
