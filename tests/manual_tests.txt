@@ -11,7 +11,7 @@ Heart Failure
 objectives
 1) data upload
 - download heart failure data
-- upload demo for metadata: if file is correct dropdown menus to select the response variable and reference level should appear; choose "hospitalizations" as the response variable and choose "No" as the reference level
+- upload demo for metadata and select the tab separator: if file is correct dropdown menus to select the response variable and reference level should appear; choose "hospitalizations" as the response variable and choose "No" as the reference level
 - upload cells, holder and proteins for the Omics data
 test 1
 - click Alexa button: "This functionality has been suspended..." message should appear
