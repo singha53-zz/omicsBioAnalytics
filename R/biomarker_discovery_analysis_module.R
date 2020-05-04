@@ -78,12 +78,24 @@ biomarker_discovery_analysis_ui <- function(id, dataset_names, response, respons
                     )
                   )),
                 shiny::tabPanel("Panels",
-                  shiny::fluidRow(shiny::column(2, ""),
-                    shiny::column(8, shiny::h4("Overlap between single and ensemble biomarker panels"), shiny::plotOutput(ns("panelN")),
+                  shiny::fluidRow(
+                    shiny::column(12, omicsBioAnalytics::variable_plot_ui(ns("biomarker_plot")))
+                  ),
+                  shiny::fluidRow(
+                    shiny::column(12,
+                      h2("Single Omic biomarker panels"),
+                      shiny::uiOutput(ns("biomarker_panels")))
+                  ),
+                  shiny::fluidRow(
+                    shiny::column(12,
+                      h2("Ensemble biomarker panel"),
+                      shiny::uiOutput(ns("ensemble_panel")))
+                  ),
+                  shiny::fluidRow(
+                    shiny::column(12, shiny::h4("Overlap between single and ensemble biomarker panels"),
+                    shiny::plotOutput(ns("panelN")),
                     shiny::downloadButton(ns("biomarkerPanels"), label = shiny::HTML("<span style='font-size:1em;'>Download<br/>Biomarkers</span>"), style = "color: #fff; background-color: #FF7F00; border-color: #2e6da4")
-                  ), shiny::column(2, "")),
-                  shiny::fluidRow(shiny::column(6, shiny::h3("Individual biomarker panels"), plotly::plotlyOutput(ns("singlePanel"), height = "1000px")),
-                    shiny::column(6, shiny::h3("Ensemble biomarker panel"), plotly::plotlyOutput(ns("ensemblePanel"), height = "1000px")))
+                  ))
                 ),
                 shiny::tabPanel("PCA plots",
                   shiny::fluidRow(shiny::column(6,
@@ -187,11 +199,12 @@ biomarker_discovery_analysis_ui_vars <- function(input, output, session) {
 #' @param input,output,session standard \code{shiny} boilerplate
 #' @param biomarker_discovery_analysis_ui_vars list of reactive vars ()
 #' @export
-biomarker_discovery_analysis_server <- function(input, output, session, datasets, response, response_var, biomarker_discovery_analysis_ui_vars) {
+biomarker_discovery_analysis_server <- function(input, output, session, datasets, response, response_var, group_colors, biomarker_discovery_analysis_ui_vars) {
+  ns <- session$ns
 
-  ## Classification performances
+  ## Build GLMNET models with button is clicked.
   shiny::observeEvent(biomarker_discovery_analysis_ui_vars$build(), {
-    print("button clicked!!")
+    # Validate conditioning need to build biomarker panels
     errMsg <- shiny::reactive({shiny::validate(
       need(length(biomarker_discovery_analysis_ui_vars$selectedGroups()) > 1, "Please only select two groups."),
       need(length(biomarker_discovery_analysis_ui_vars$selectedGroups()) < 3, "Please only select two groups."),
@@ -206,12 +219,8 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
     shiny::req(length(biomarker_discovery_analysis_ui_vars$checkGroup_ensemble()) > 0)
     shiny::req(length(response) > 0 )
     shiny::req(sum(biomarker_discovery_analysis_ui_vars$selectedGroups() %in% response) > 0)
-    print("response")
-    print(response)
-    print(biomarker_discovery_analysis_ui_vars$selectedGroups())
-    print(response[response %in% biomarker_discovery_analysis_ui_vars$selectedGroups()])
 
-    ## reduce data to two groups
+    ## only consider data for selected two groups
     if (nlevels(response) > 2) {
       subset_response <- shiny::isolate({droplevels(response[response %in% input$selectedGroups])})
       subset_eset <- shiny::isolate({lapply(datasets, function(i){
@@ -225,6 +234,8 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
 
     # if response is coded with numbers only, change it to a valid R variable
     subset_response <- factor(make.names(subset_response))
+
+    # parameters
     alphaMin <- shiny::isolate(biomarker_discovery_analysis_ui_vars$alpha()[1])
     alphaMax <- shiny::isolate(biomarker_discovery_analysis_ui_vars$alpha()[2])
     alphalength <- shiny::isolate(biomarker_discovery_analysis_ui_vars$alphaGrid())
@@ -232,7 +243,7 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
     n_repeats <- shiny::isolate(biomarker_discovery_analysis_ui_vars$n_repeats())
     single <- shiny::isolate(as.character(biomarker_discovery_analysis_ui_vars$checkGroup_single()))
     ensem <- shiny::isolate(as.character(biomarker_discovery_analysis_ui_vars$checkGroup_ensemble()))
-    datasets <- shiny::isolate(unique(c(single, ensem)))
+    dataset_names <- shiny::isolate(unique(c(single, ensem)))
 
     ## set control parameters
     if (kfolds == "fiveFold") {
@@ -260,12 +271,12 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
 
     shiny::withProgress(message = 'Constructing models.',
       detail = 'This may take a while...', value = 0, {
-        mods <- vector("list", length(datasets))
-        names(mods) <- datasets
+        mods <- vector("list", length(dataset_names))
+        names(mods) <- dataset_names
 
-        for (dat in datasets) {
+        for (dat in dataset_names) {
           # Increment the progress bar, and update the detail text.
-          incProgress(1/length(datasets), detail = paste("Building ", dat, " model..."))
+          incProgress(1/length(dataset_names), detail = paste("Building ", dat, " model..."))
 
           mods[[dat]] <- caret::train(x = subset_eset[[dat]], y = subset_response,
             preProc = c("center", "scale"),
@@ -358,6 +369,11 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
       proxy %>% DT::selectRows(as.numeric(rowNums))
     })
 
+    ################################################################################
+    #
+    # Variables in each Single Omics Biomarker Panel
+    #
+    ################################################################################
     ## Fit single dataset models
     singlePanelMods <- lapply(1:length(single), function(i){
       dataset <- single[i]
@@ -378,42 +394,23 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
     singlePanel <- lapply(singlePanelMods, function(i){
       as.character(i$features)
     })
-
-    barColors <- c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728","#9467bd")
-    names(barColors) <- names(subset_eset)
-    output$singlePanel <- plotly::renderPlotly({
-      options(htmlwidgets.TOJSON_ARGS = NULL)
-      f1 <- list(
-        family = "Arial, sans-serif",
-        size = 8,
-        color = "lightgrey"
-      )
-      f2 <- list(
-        family = "Old Standard TT, serif",
-        size = 8,
-        color = "black"
-      )
-      a <- list(
-        title = "AXIS TITLE",
-        titlefont = f1,
-        showticklabels = TRUE,
-        tickangle = 45,
-        tickfont = f2,
-        exponentformat = "E"
-      )
-      do.call(rbind, singlePanelMods) %>%
-        group_by(panel) %>%
-        do(
-          p = plot_ly(., x = ~features, y = ~coef, marker = list(color = barColors[unique(.$panel)])) %>%
-            layout(xaxis = a, yaxis = a, annotations = list(
-              x = 0.5, y = 1.05, text = ~unique(panel), showarrow = F, xref = 'paper', yref = 'paper'
-            ))
-        ) %>%
-        subplot(nrows = nrow(.), margin = 0.05) %>%
-        layout(showlegend = FALSE,
-          margin = list(l = 50, r = 100, b = 150, t = 50, pad = 4))
+    output$biomarker_panels = shiny::renderUI({
+      omicsBioAnalytics::dotplot_ui(ns("biomarker_panels"),
+        panel_names = names(singlePanelMods))
     })
 
+    single_panel_ui_vars <- shiny::callModule(module = omicsBioAnalytics::dotplot_ui_vars,
+      "biomarker_panels")
+    shiny::callModule(module = omicsBioAnalytics::dotplot_server,
+      id = "biomarker_panels",
+      data = do.call(rbind, singlePanelMods),
+      dotplot_ui_vars = single_panel_ui_vars)
+
+    ################################################################################
+    #
+    # Variables in the Ensemble Biomarker Panel
+    #
+    ################################################################################
     ## Fit ensemble dataset models
     ensemblePanelMods <- lapply(1:length(ensem), function(i){
       dataset <- ensem[i]
@@ -434,6 +431,16 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
     ensemblePanel <- lapply(ensemblePanelMods, function(i){
       as.character(i$features)
     })
+    output$ensemble_panel = shiny::renderUI({
+      omicsBioAnalytics::dotplot_ui(ns("ensemble_panel"),
+        panel_names = names(ensemblePanelMods))
+    })
+    ensemble_panel_ui_vars <- shiny::callModule(module = omicsBioAnalytics::dotplot_ui_vars,
+      "ensemble_panel")
+    shiny::callModule(module = omicsBioAnalytics::dotplot_server,
+      id = "ensemble_panel",
+      data = do.call(rbind, ensemblePanelMods),
+      dotplot_ui_vars = ensemble_panel_ui_vars)
 
     output$biomarkerPanels <- shiny::downloadHandler(
       filename = function() {
@@ -452,38 +459,61 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
       }
     )
 
-    output$ensemblePanel <- plotly::renderPlotly({
-      options(htmlwidgets.TOJSON_ARGS = NULL)
-      f1 <- list(
-        family = "Arial, sans-serif",
-        size = 8,
-        color = "lightgrey"
-      )
-      f2 <- list(
-        family = "Old Standard TT, serif",
-        size = 8,
-        color = "black"
-      )
-      a <- list(
-        title = "AXIS TITLE",
-        titlefont = f1,
-        showticklabels = TRUE,
-        tickangle = 45,
-        tickfont = f2,
-        exponentformat = "E"
-      )
-      do.call(rbind, ensemblePanelMods) %>%
-        group_by(panel) %>%
-        do(
-          p = plot_ly(., x = ~features, y = ~coef, marker = list(color = barColors[unique(.$panel)])) %>%
-            layout(xaxis = a, yaxis = a, annotations = list(
-              x = 0.5, y = 1.05, text = ~unique(panel), showarrow = F, xref = 'paper', yref = 'paper'
-            ))
-        ) %>%
-        subplot(nrows = nrow(.), margin = 0.05) %>%
-        layout(showlegend = FALSE,
-          margin = list(l = 50, r = 100, b = 150, t = 50, pad = 4))
+    ################################################################################
+    #
+    # plot selected biomarker
+    #
+    ################################################################################
+    selected_variable <- shiny::reactiveValues(feature = "", panel = "")
+    shiny::observeEvent(single_panel_ui_vars$dotplot_click(), {
+      if (!is.null(single_panel_ui_vars$dotplot_click)) {
+        selection <- shiny::nearPoints(do.call(rbind, singlePanelMods),
+          single_panel_ui_vars$dotplot_click(),
+          threshold = 5,
+          maxpoints = 1)
+        selected_variable$feature <- as.character(selection$features)
+        selected_variable$panel <- selection$panel
+      }
     })
+    shiny::observeEvent(ensemble_panel_ui_vars$dotplot_click(), {
+      if (!is.null(ensemble_panel_ui_vars$dotplot_click)) {
+        selection <- shiny::nearPoints(do.call(rbind, ensemblePanelMods),
+          ensemble_panel_ui_vars$dotplot_click(),
+          threshold = 5,
+          maxpoints = 1)
+        selected_variable$feature <- as.character(selection$features)
+        selected_variable$panel <- selection$panel
+      }
+    })
+
+    shiny::observeEvent(selected_variable$feature, {
+      something_is_there <- ifelse(length(selected_variable$feature) > 0, TRUE, FALSE)
+      print(selected_variable$feature)
+      print(selected_variable$panel)
+      print(length(selected_variable$feature))
+      if (something_is_there) {
+        if (selected_variable$panel %in% names(datasets)){
+          print("make plot")
+          biomarker_ui_vars <- shiny::callModule(module = omicsBioAnalytics::variable_plot_ui_vars,
+            "biomarker_plot")
+          shiny::callModule(module = omicsBioAnalytics::variable_plot_server,
+            id = "biomarker_plot",
+            response = response,
+            response_var = response_var,
+            datasets = datasets,
+            selected_variable = selected_variable,
+            group_colors = group_colors,
+            variable_plot_ui_vars = biomarker_ui_vars)
+        }
+      } else {
+        omicsBioAnalytics::empty_plot("Please select a point from the dot plots below.")
+      }
+    })
+
+
+
+    barColors <- c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728","#9467bd")
+    names(barColors) <- names(subset_eset)
 
     overlap <- lapply(intersect(single, ensem), function(i){
       intersect(singlePanel[[i]], ensemblePanel[[i]])
