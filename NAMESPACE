@@ -55,6 +55,12 @@ export(alexaDexp)
 export(empty_plot)
 
 export(customDownloadButton)
+export(dotplot_ui)
+export(dotplot_ui_vars)
+export(dotplot_server)
+export(variable_plot_ui)
+export(variable_plot_ui_vars)
+export(variable_plot_server)
 
 importFrom(utils, read.csv)
 importFrom(utils, write.csv)

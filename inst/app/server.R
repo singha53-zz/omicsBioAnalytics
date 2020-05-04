@@ -128,6 +128,7 @@ function(input, output, session) {
           datasets = data_upload_server_vars$get_omics_data(),
           response = data_upload_server_vars$response(),
           response_var = data_upload_ui_vars$response_var(),
+          group_colors = group_colors,
           biomarker_discovery_analysis_ui_vars = biomarker_discovery_analysis_ui_vars)
 
       })
