@@ -608,7 +608,11 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
         zAxisTitle = paste0("PC3 (", round(100*summary(pc)$importance["Proportion of Variance","PC3"], 0), "%)"))
     })
 
-    ## Heatmap of selected variables
+    ################################################################################
+    #
+    # Heatmap of selected variables
+    #
+    ################################################################################
     shiny::observe({
       shiny::updateRadioButtons(session, "heatmapBasePanelRadioButtons",
         label = "Select panel",
@@ -632,7 +636,7 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
           data = y,
           smpAnnot = x,
           varAnnot = z,
-          colors = c('blue', 'red'),
+          colors = group_colors[1:nlevels(subset_response)],
           colorSpectrum = list("magenta", "blue", "black", "red", "gold"),
           colorSpectrumZeroValue = 0,
           graphType = "Heatmap",
@@ -681,6 +685,9 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
         t
       y[y < -2] <- -2
       y[y > 2] <- 2
+      print(rownames(y))
+      print(colnames(y))
+      rownames(y) <- sapply(strsplit(rownames(y), "\\."), function(i) i[2])
       x = data.frame(Group = subset_response)
       rownames(x) <- colnames(y) <- paste0("subj", 1:nrow(x))
       z = data.frame(dataset = rep(names(ensemblePanel), sapply(ensemblePanel, length)))
