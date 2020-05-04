@@ -371,9 +371,10 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
 
     ################################################################################
     #
-    # Variables in each Single Omics Biomarker Panel
+    # Panels tab
     #
     ################################################################################
+    ## Variables in each Single Omics Biomarker Panel
     ## Fit single dataset models
     singlePanelMods <- lapply(1:length(single), function(i){
       dataset <- single[i]
@@ -406,11 +407,7 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
       data = do.call(rbind, singlePanelMods),
       dotplot_ui_vars = single_panel_ui_vars)
 
-    ################################################################################
-    #
-    # Variables in the Ensemble Biomarker Panel
-    #
-    ################################################################################
+    ## Variables in the Ensemble Biomarker Panel
     ## Fit ensemble dataset models
     ensemblePanelMods <- lapply(1:length(ensem), function(i){
       dataset <- ensem[i]
@@ -459,11 +456,7 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
       }
     )
 
-    ################################################################################
-    #
-    # plot selected biomarker
-    #
-    ################################################################################
+    ## plot selected biomarker based on selection from dot plots above
     selected_variable <- shiny::reactiveValues(feature = "", panel = "")
     shiny::observeEvent(single_panel_ui_vars$dotplot_click(), {
       if (!is.null(single_panel_ui_vars$dotplot_click)) {
@@ -510,8 +503,6 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
       }
     })
 
-
-
     barColors <- c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728","#9467bd")
     names(barColors) <- names(subset_eset)
 
@@ -528,7 +519,11 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
       UpSetR::upset(Input, sets = colnames(Input))
     })
 
-    ## PCA plot
+    ################################################################################
+    #
+    # PCA plots
+    #
+    ################################################################################
     shiny::observe({
       shiny::updateRadioButtons(session, "pcaBasePanelRadioButtons",
         label = "Select panel",
@@ -537,6 +532,7 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
     })
     ### Base classifier
     output$pcaBasePanel <- canvasXpress::renderCanvasXpress({
+      print(group_colors[1:nlevels(subset_response)])
       dataset <- subset_eset[[biomarker_discovery_analysis_ui_vars$pcaBasePanelRadioButtons()]]
       variables <- singlePanel[[biomarker_discovery_analysis_ui_vars$pcaBasePanelRadioButtons()]]
       grouping <- data.frame(Group = subset_response)
@@ -550,7 +546,6 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
           colorBy   = "Group",
           ellipseBy = "Group",
           graphType = "Scatter3D",
-          colorScheme = "Set2",
           colors = group_colors[1:nlevels(subset_response)],
           xAxisTitle = paste0("PC1 (", round(100*summary(pc)$importance["Proportion of Variance","PC1"], 0), "%)"),
           yAxisTitle = paste0("PC2 (", round(100*summary(pc)$importance["Proportion of Variance","PC2"], 0), "%)"),
@@ -560,7 +555,7 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
           data = dataset[, variables, drop = FALSE],
           varAnnot  = grouping,
           colorBy   = "Group",
-          colorScheme = "Set2",
+          # colorScheme = "Set2",
           colors = group_colors[1:nlevels(subset_response)],
           graphType = "ScatterBubble2D",
           size = list(1)
@@ -578,7 +573,6 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
           graphOrientation = "vertical",
           graphType = "Boxplot",
           jitter = TRUE,
-          colorScheme = "Set2",
           colors = group_colors[1:nlevels(subset_response)],
           legendBox = FALSE,
           plotByVariable = TRUE,
@@ -607,7 +601,6 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
         varAnnot  = grouping,
         colorBy   = "Group",
         ellipseBy = "Group",
-        colorScheme = "Set2",
         colors = group_colors[1:nlevels(subset_response)],
         graphType = "Scatter3D",
         xAxisTitle = paste0("PC1 (", round(100*summary(pc)$importance["Proportion of Variance","PC1"], 0), "%)"),
