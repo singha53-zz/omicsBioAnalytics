@@ -94,15 +94,15 @@ dea_ui <- function(id, datasetName, dataset, response) {
           shiny::verbatimTextOutput(ns("pathwayEnrichment_info")),
           shiny::downloadButton(ns("edgesGsetAll"), label = shiny::HTML("<span style='font-size:1em;'>Download<br/>Enriched Pathways</span>")))),
       shiny::fluidRow(align = 'center',
-        shiny::column(6, shiny::h1(paste0("Drugs that reverse expression of up-regulated ", datasetName)),
+        shiny::column(12, shiny::h1(paste0("Drugs that reverse expression of up-regulated ", datasetName)),
           shiny::sliderInput(ns("drugEnrichmentUpSlider"), "Select number of compounds:", min = 0, max = 10, value = 5, step = 2),
           plotly::plotlyOutput(ns("drugEnrichmentUp"))),
-        shiny::column(6, shiny::h1(paste0("Drugs that reverse expression of down-regulated ", datasetName)),
+        shiny::column(12,
+          shiny::downloadButton(ns("edgesPertUp"), label = shiny::HTML("<span style='font-size:1em;'>Download compounds </span>"), style = "color: #fff; background-color: #F8766D; border-color: #2e6da4")),
+        shiny::column(12, shiny::h1(paste0("Drugs that reverse expression of down-regulated ", datasetName)),
           shiny::sliderInput(ns("drugEnrichmentDownSlider"), "Select number of compounds:", min = 0, max = 10, value = 5, step = 2),
           plotly::plotlyOutput(ns("drugEnrichmentDown"))),
-        shiny::column(6,
-          shiny::downloadButton(ns("edgesPertUp"), label = shiny::HTML("<span style='font-size:1em;'>Download compounds </span>"), style = "color: #fff; background-color: #F8766D; border-color: #2e6da4")),
-        shiny::column(6,
+        shiny::column(12,
           shiny::downloadButton(ns("edgesPertDown"), label = shiny::HTML("<span style='font-size:1em;'>Download compounds </span>"), style = "color: #fff; background-color: #619CFF; border-color: #2e6da4"))
       )
     )
