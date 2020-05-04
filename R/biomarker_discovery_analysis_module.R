@@ -487,11 +487,12 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
     })
 
     shiny::observeEvent(selected_variable$feature, {
+      something_is_there <- ifelse(length(selected_variable$feature) > 0, TRUE, FALSE)
       print(selected_variable$feature)
       print(selected_variable$panel)
       print(length(selected_variable$feature))
-      if (length(selected_variable$feature) > 0) {
-        if (selected_variable$feature != ""){
+      if (something_is_there) {
+        if (selected_variable$panel %in% names(datasets)){
           print("make plot")
           biomarker_ui_vars <- shiny::callModule(module = omicsBioAnalytics::variable_plot_ui_vars,
             "biomarker_plot")
@@ -504,6 +505,8 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
             group_colors = group_colors,
             variable_plot_ui_vars = biomarker_ui_vars)
         }
+      } else {
+        omicsBioAnalytics::empty_plot("Please select a point from the dot plots below.")
       }
     })
 

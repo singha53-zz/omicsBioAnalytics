@@ -68,27 +68,37 @@ variable_plot_ui_vars <- function(input, output, session) {
 #' @export
 variable_plot_server <- function(input, output, session, response, response_var, datasets, selected_variable, group_colors, variable_plot_ui_vars) {
 
+  print("inside variable_plot_server function")
   print(names(datasets))
   print(selected_variable$panel)
   print(selected_variable$feature)
+  exp <- datasets[[selected_variable$panel]][, selected_variable$feature]
+  print(exp)
 
   output$variable_plot <- plotly::renderPlotly({
-    ggplotly(data.frame(x = response, y = datasets[[selected_variable$panel]][, selected_variable$feature]) %>%
-        ggplot(aes(x = x, y = y, fill = x)) +
-        geom_violin(trim = FALSE) +
-        xlab(response_var) +
-        ylab(selected_variable$feature) +
-        geom_jitter(shape = 16, position = position_jitter(0.2)) +
-        ggtitle(paste(selected_variable$feature, " vs. ", response_var)) +
-        theme_classic() +
-        theme(legend.position = "none") +
-        scale_fill_manual(values = group_colors[1:length(unique(response))]) +
-        theme(axis.text.x = element_text(angle = variable_plot_ui_vars$xAngle(),
-          hjust = variable_plot_ui_vars$hjust(),
-          vjust = variable_plot_ui_vars$vjust(),
-          size = variable_plot_ui_vars$xSize()),
-          axis.text.y = element_text(size = variable_plot_ui_vars$ySize()))
-    )
+    if (length(exp) > 0 & length(selected_variable$feature) > 0) {
+      print("exp")
+      print(exp)
+      print(selected_variable$feature)
+      ggplotly(data.frame(x = response, y = exp) %>%
+          ggplot(aes(x = x, y = y, fill = x)) +
+          geom_violin(trim = FALSE) +
+          xlab(response_var) +
+          ylab(selected_variable$feature) +
+          geom_jitter(shape = 16, position = position_jitter(0.2)) +
+          ggtitle(paste(selected_variable$feature, " vs. ", response_var)) +
+          theme_classic() +
+          theme(legend.position = "none") +
+          scale_fill_manual(values = group_colors[1:length(unique(response))]) +
+          theme(axis.text.x = element_text(angle = variable_plot_ui_vars$xAngle(),
+            hjust = variable_plot_ui_vars$hjust(),
+            vjust = variable_plot_ui_vars$vjust(),
+            size = variable_plot_ui_vars$xSize()),
+            axis.text.y = element_text(size = variable_plot_ui_vars$ySize()))
+      )
+    } else {
+      omicsBioAnalytics::empty_plot("Please select a point from the dot plots below.")
+    }
   })
 
 }
