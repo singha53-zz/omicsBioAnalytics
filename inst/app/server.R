@@ -169,17 +169,27 @@ function(input, output, session) {
           responseColumnName <- isolate({data_upload_ui_vars$response_var()})
           responseRefLevel <- isolate({data_upload_ui_vars$ref_var()})
           response <- isolate({relevel(factor(as.character(demo[, responseColumnName])), ref = responseRefLevel)})
-          omicsData <- isolate({getOmicsData()})
+          omicsData <- isolate({data_upload_server_vars$get_omics_data()})
 
           dynamodbAttr <- list()
           # analyze demo data and save images to S3
-          dynamodbAttr$ds <- omicsBioAnalytics::alexa_metadata(demo, group = responseColumnName, trim = 0.5, format = "APL")
+          dynamodbAttr$ds <- omicsBioAnalytics::alexa_metadata(demo,
+            group = responseColumnName,
+            trim = 0.5,
+            format = "APL",
+            user_id, s3_bucket)
 
           # EDA and save images to S3
-          dynamodbAttr$eda <- omicsBioAnalytics::alexaEda(demo, group = responseColumnName, omicsData)
+          dynamodbAttr$eda <- omicsBioAnalytics::alexaEda(demo,
+            group = responseColumnName,
+            omicsData,
+            user_id, s3_bucket)
 
           # Perform Differential Expression Analysis and save images to S3
-          dynamodbAttr$dexp <- omicsBioAnalytics::alexaDexp(demo, group = responseColumnName, omicsData)
+          dynamodbAttr$dexp <- omicsBioAnalytics::alexaDexp(demo,
+            group = responseColumnName,
+            omicsData,
+            user_id, s3_bucket)
 
           # save dynamodb attributes to dynamodb_table_name (set in global.R) for user_id (set in global.R)
           omicsBioAnalytics::put_item(dynamodb_table_name, list(id = user_id, phoneNumber = jsonlite::toJSON(dynamodbAttr)))
