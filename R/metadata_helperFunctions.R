@@ -174,12 +174,13 @@ summariseContVar = function(demo, group, format){
 }
 #
 # library(omicsBioAnalytics)
-# data("covid19")
-# demo <- covid19$demo
-# group  <-  "group"
+# data("heartFailure")
+# demo <- heartFailure$demo
+# group  <-  "hospitalizations"
 # trim  <-  0.5
 # format = "apl"
 # result <- computeDescriptiveStats(demo, group, trim, format)
+# result
 # library(gridExtra)
 # library(grid)
 #
@@ -224,13 +225,13 @@ computeDescriptiveStats = function(demo, group = NULL, trim = 0.5, format){
       NA
     }
   } else {
-    if (is.data.frame(cont) & is.data.frame(cat)){
+    if (is.list(cont) & is.list(cat)){
       list(apl = append(cont, cat),
         var_type = c(rep("continuous", length(cont)), rep("categorical", length(cat))))
-    } else if (is.data.frame(cont) & !is.data.frame(cat)) {
+    } else if (is.list(cont) & !is.list(cat)) {
       list(apl = cont,
         var_type = rep("continuous", length(cont)))
-    } else if (!is.data.frame(cont) & is.data.frame(cat)) {
+    } else if (!is.list(cont) & is.list(cat)) {
       list(apl = cat,
         var_type = rep("categorical", length(cat)))
     } else {
