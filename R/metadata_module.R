@@ -40,30 +40,21 @@ metadata_ui <- function(id) {
             shiny::tableOutput(ns("descriptive_stat")),
             shiny::h3(shiny::textOutput(ns("test_title"))),
             shiny::verbatimTextOutput(ns("test")),
-            shiny::fluidRow(shiny::column(6,
-              shiny::h6(shiny::textOutput(ns("lm_assumptions")))),
-              shiny::column(6, shiny::actionButton(ns("lr"),
-                "linear regression assumptions",
-                icon = shiny::icon("table")),
-                shinyBS::bsModal(ns("hypothesisTests"),
-                  "Assessment of linear regression assumptions.",
-                  ns("lr"), size = "large",
-                  DT::dataTableOutput(ns("tbl"))))),
+            shiny::uiOutput(ns("show_assumptions_button")),
             shiny::h3("Conclusion"),
-            shiny::tags$style(type = "text/css", "#conclusion {color: red;}"),
             shiny::textOutput(ns("conclusion"))
           ))
       ),
       shiny::tabPanel("Categorical variables",
         shiny::fluidPage(
-          shiny::column(6,
+          shiny::column(4,
             shiny::radioButtons(
               ns("cat_var"),
               "Choose from one of the following variables:",
               "",
               inline = TRUE
             )),
-          shiny::column(6,
+          shiny::column(8,
             shiny::h3(shiny::textOutput(ns("chisq_title"))),
             shiny::br(),
             shiny::fluidRow(shiny::column(6, shiny::h4("Observed counts"),
@@ -104,7 +95,10 @@ metadata_ui_vars <- function(input, output, session) {
       cat_var = shiny::reactive({
         input$cat_var}),
       transform = shiny::reactive({
-        input$transform})
+        input$transform}),
+      test = shiny::reactive({
+        input$test
+      })
     )
   )
 }
@@ -153,7 +147,7 @@ metadata_server <- function(input, output, session,
       })
 
       fit <- shiny::reactive({
-        if (input$test == "lr") {
+        if (metadata_ui_vars$test() == "lr") {
           lm(y~x, data = cont_dat())
         } else {
           kruskal.test(y~x, data = cont_dat())
@@ -188,7 +182,7 @@ metadata_server <- function(input, output, session,
       })
 
       output$test_title <- shiny::renderText({
-        if (input$test == "lr") {
+        if (metadata_ui_vars$test() == "lr") {
           "Linear Regression"
         } else {
           "Kruskal-Wallis Test"
@@ -196,7 +190,7 @@ metadata_server <- function(input, output, session,
       })
 
       assumptions <- shiny::reactive({
-        if (input$test == "lr") {
+        if (metadata_ui_vars$test() == "lr") {
           gvlma::gvlma(fit())$GlobalTest[2:6] %>%
             do.call(rbind, .) %>%
             as.data.frame %>%
@@ -225,9 +219,9 @@ metadata_server <- function(input, output, session,
         options = list(lengthChange = FALSE))
 
       output$lm_assumptions <- shiny::renderText({
-        if (input$test == "lr") {
+        if (metadata_ui_vars$test() == "lr") {
           if (assumptions()$Decision[1] == "Assumptions acceptable.") {
-            "Assumptions acceptable. Linear regression is recommended."
+            "Assumptions acceptable."
           } else {
             "Try a log2-transformation. If that doesn't work,
           the Kruskal-Wallis Test is recommended."
@@ -238,11 +232,31 @@ metadata_server <- function(input, output, session,
       })
 
       output$test <- shiny::renderPrint({
-        if (input$test == "lr") {
+        if (metadata_ui_vars$test() == "lr") {
           coef(summary(fit()))
         } else {
           fit()
         }
+      })
+
+      ## to show lr assumptions button or not
+      shiny::observeEvent(metadata_ui_vars$test(), {
+            output$show_assumptions_button <- shiny::renderUI({
+              if (metadata_ui_vars$test() == "lr") {
+                ns <- session$ns
+                shiny::fluidRow(shiny::column(6,
+                  shiny::h6(shiny::textOutput(ns("lm_assumptions")))),
+                  shiny::column(6, shiny::actionButton(ns("lr"),
+                    "linear regression assumptions",
+                    icon = shiny::icon("table")),
+                    shinyBS::bsModal(ns("hypothesisTests"),
+                      "Assessment of linear regression assumptions.",
+                      ns("lr"), size = "large",
+                      DT::dataTableOutput(ns("tbl")))))
+              } else {
+                return(NULL)
+              }
+            })
       })
 
       output$descriptive_stat <- shiny::renderTable({
@@ -256,7 +270,7 @@ metadata_server <- function(input, output, session,
             SD  = sd(y, na.rm = TRUE)) %>%
           dplyr::rename(Group = x)
 
-        if (input$test == "lr") {
+        if (metadata_ui_vars$test() == "lr") {
           parametric_desc_stat <- signif(rbind(summary_stat$Mean,
             summary_stat$SD), 3)
           rownames(parametric_desc_stat) <- c("Mean", "SD")
@@ -276,24 +290,24 @@ metadata_server <- function(input, output, session,
       })
 
       output$conclusion <- shiny::renderText({
-        if (input$test == "lr") {
+        if (metadata_ui_vars$test() == "lr") {
           ifelse(summary(aov(fit()))[[1]][1, "Pr(>F)"] < 0.05,
             paste0("There is a statistically significant difference
             (at p<0.05) ",
-              input$var, " between the groups based an Analysis of Variance
+              metadata_ui_vars$cont_var(), " between the groups based on an Analysis of Variance
             (see pairwise comparisons above)."),
             paste0("There is no statistically significant difference
             (at p<0.05) ",
-              input$var, " between the groups based an Analysis of Variance
+              metadata_ui_vars$cont_var(), " between the groups based on an Analysis of Variance
             (see pairwise comparisons above)."))
         } else {
           ifelse(fit()$p.value < 0.05,
             paste0("There is a statistically significant difference
             (at p<0.05) in ",
-              input$var, " distributions between the groups."),
+              metadata_ui_vars$cont_var(), " between the mean ranks of the groups."),
             paste0("There is no statistically significant difference
             (at p<0.05) in ",
-              input$var, " distributions between the groups."))
+              metadata_ui_vars$cont_var(), " between the mean ranks of the groups."))
         }
       })
     })
