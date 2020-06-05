@@ -34,12 +34,14 @@ wikipathways <- subset(pathwayDB, DB == "WikiPathways_2019_Human")
 wikipathways <- split(wikipathways$Genes, as.character(wikipathways$Pathways))
 
 # set env vars
-source("makeEnvVars.R")
-Sys.setenv("S3BUCKET" = readRDS("S3BUCKET.rds"),
+if(file.exists("makeEnvVars.R")){
+  source("makeEnvVars.R")
+  Sys.setenv("S3BUCKET" = readRDS("S3BUCKET.rds"),
   "AWS_ACCESS_KEY_ID" = readRDS("AWS_ACCESS_KEY_ID.rds"),
   "AWS_SECRET_ACCESS_KEY" = readRDS("AWS_SECRET_ACCESS_KEY.rds"),
   "AWS_DEFAULT_REGION" = readRDS("AWS_DEFAULT_REGION.rds"),
   "TABLE_NAME" = readRDS("TABLE_NAME.rds"))
+}
 
 ## color paletter for groups
 group_colors <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")

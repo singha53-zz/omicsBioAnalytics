@@ -20,7 +20,7 @@ library(omicsBioAnalytics)
 data(covid19)
 }
 \references{
-Blanco-Melo \emphasis{et al.} SARS-CoV-2 launches a unique transcriptional signature from in vitro, ex vivo, and in vivo systems. Can J Cardiol. 2019 Apr;35(4):471-479.
+Blanco-Melo et al. SARS-CoV-2 launches a unique transcriptional signature from in vitro, ex vivo, and in vivo systems. Can J Cardiol. 2019 Apr;35(4):471-479.
 (\href{https://www.biorxiv.org/content/10.1101/2020.03.24.004655v1.full}{COVID-19 bioRxiv paper})
 }
 \keyword{IAV,}

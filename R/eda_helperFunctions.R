@@ -16,7 +16,7 @@ pcaPairs = function(pcs,y,col){
 #' @export
 #' @rdname pcaHeatmap
 pcaHeatmap = function(pcs, demo){
-  pvalheatmap <- matrix(0, nc = ncol(demo), nr = ncol(pcs))
+  pvalheatmap <- matrix(0, ncol = ncol(demo), nrow = ncol(pcs))
   rownames(pvalheatmap) <- colnames(pcs)
   colnames(pvalheatmap) <- colnames(demo)
   for(i in 1:ncol(pcs)){

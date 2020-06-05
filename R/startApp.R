@@ -4,5 +4,6 @@
 #' @export
 #' @rdname startApplication
 start_app <- function() {
-  shiny::runApp("inst/app")
+  appDir <- system.file("/app", package = "omicsBioAnalytics")
+  shiny::runApp(appDir, launch.browser = TRUE)
 }
