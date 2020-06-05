@@ -9,6 +9,7 @@ Description: Users can upload multiple omics data and perform various bioinforma
     biomarker discovery analysis and manuscript writing.
 Depends: R (>= 3.5.0)
 Imports:
+ aws.s3 (>= 0.3.21),
  canvasXpress (>= 1.26.5),
  caret (>= 6.0-84),
  dqshiny (>= 0.0.3),
@@ -19,10 +20,12 @@ Imports:
  ggrepel (>= 0.8.1),
  glmnet (>= 2.0-18),
  googleVis (>= 0.6.4),
+ gridExtra (>= 2.3),
  gvlma (>= 1.0.0.3),
  jsonlite (>= 1.6),
  lattice (>= 0.20-38),
  limma (>= 3.40.6),
+ magrittr (>= 1.5),
  pheatmap (>= 1.0.12),
  plotly (>= 4.9.1),
  pROC (>= 1.15.3),

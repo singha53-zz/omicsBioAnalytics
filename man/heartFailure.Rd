@@ -23,7 +23,7 @@ library(omicsBioAnalytics)
 data(heartFailure)
 }
 \references{
-Singh \emphasis{et al.} Ensembling Electrical and Proteogenomics Biomarkers for Improved Prediction of Cardiac-Related 3-Month Hospitalizations: A Pilot Study. Can J Cardiol. 2019 Apr;35(4):471-479.
+Singh et al. Ensembling Electrical and Proteogenomics Biomarkers for Improved Prediction of Cardiac-Related 3-Month Hospitalizations: A Pilot Study. Can J Cardiol. 2019 Apr;35(4):471-479.
 (\href{https://amritsingh.shinyapps.io/multiomics_HFhospitalizations/}{heart failure datasets})
 }
 \keyword{biomarkers}
