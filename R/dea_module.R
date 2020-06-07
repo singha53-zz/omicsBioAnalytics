@@ -58,7 +58,12 @@ dea_ui <- function(id, datasetName, dataset, response) {
                 shiny::sliderInput(ns("dePlotOps_xAngle"), "x-axis text angle:", min = 0, max = 180, value = 0),
                 shiny::sliderInput(ns("dePlotOps_xSize"), "x-axis text size:", min = 5, max = 20, value = 7),
                 shiny::sliderInput(ns("dePlotOps_ySize"), "y-axis text size:", min = 5, max = 20, value = 7)
-              )
+              ),
+              shinyBS::bsButton(ns("plot_help"), label = "", icon = shiny::icon("question"), style = "color:gray", size = "extra-small"),
+              shinyBS::bsPopover(id = ns("plot_help"), title = "Tests",
+                                 content = "The red diamond depicts the mean expression in the group.",
+                                 placement = "right",
+                                 trigger = "click",  options = NULL)
             )
           )),
         plotly::plotlyOutput(ns("boxplot"))
@@ -177,9 +182,6 @@ dea_ui_vars <- function(input, output, session) {
 #' @export
 dea_server <- function(input, output, session, datasetName, dataset, response, response_var, perform_pathway_analysis, group_colors, dea_ui_vars) {
   ns <- session$ns
-  print(dea_ui_vars$fdr())
-  print(dea_ui_vars$comparison())
-  print(dea_ui_vars$deTest())
 
   shiny::observeEvent(dea_ui_vars$fdr(), {
     shiny::observeEvent(dea_ui_vars$comparison(), {
@@ -187,12 +189,8 @@ dea_server <- function(input, output, session, datasetName, dataset, response, r
         shiny::req(!is.null(dea_ui_vars$fdr()))
         shiny::req(!is.null(dea_ui_vars$comparison()))
         shiny::req(!is.null(dea_ui_vars$deTest()))
-        print(dea_ui_vars$fdr())
-        print(dea_ui_vars$comparison())
-        print(dea_ui_vars$deTest())
 
         if (any(log2(dataset) < 0)) {
-          print(any(log2(dataset) < 0))
           shiny::updateRadioButtons(session,
             "deTest",
             label = "Test:",
@@ -206,6 +204,12 @@ dea_server <- function(input, output, session, datasetName, dataset, response, r
         shiny::req(length(selectedCoef) == 1)
 
         design <- model.matrix(~response)
+        print("response")
+        print(response)
+        print("responseLevels")
+        print(levels(response))
+        print("coef")
+        print(selectedCoef)
         top <- omicsBioAnalytics::generateTopTable(dataset, design, coefNumber = selectedCoef, test = dea_ui_vars$deTest())
 
         subsetTop <- shiny::reactive({
@@ -260,6 +264,8 @@ dea_server <- function(input, output, session, datasetName, dataset, response, r
                 ggtitle(paste(variable_name$selected, " vs. ", response_var)) +
                 theme_classic() +
                 theme(legend.position = "none") +
+                stat_summary(fun.y=mean, colour="darkred", geom="point",
+                               shape=18, size=3,show_guide = FALSE) +
                 scale_fill_manual(values = group_colors[1:length(unique(response))]) +
                 theme(axis.text.x = element_text(angle = dea_ui_vars$dePlotOps_xAngle(),
                   hjust = dea_ui_vars$dePlotOps_hjust(),
@@ -301,10 +307,6 @@ dea_server <- function(input, output, session, datasetName, dataset, response, r
               sig = signif(sig, 2)) %>%
             dplyr::select(FeatureName, logFC, P.Value, adj.P.Val))
 
-        print("datasetName")
-        print(datasetName)
-        print("performPathwayAnalysis")
-        print(perform_pathway_analysis)
         ## Differential pathway analysis
         if (datasetName %in% perform_pathway_analysis) {
           pathwaydbs <- c("Jensen_DISEASES", "KEGG_2019_Human", "WikiPathways_2019_Human")
@@ -346,7 +348,6 @@ dea_server <- function(input, output, session, datasetName, dataset, response, r
           #     omicsBioAnalytics::empty_plot(paste0("No enriched pathways at an FDR = ", input[[paste("fdr", i, sep="_")]]))
           #   }
           # })
-          print(edgesGsetAll)
           output$pathwayEnrichment <- renderPlot({
             if(nrow(edgesGsetAll) > 1 & datasetName %in% perform_pathway_analysis){
               options(htmlwidgets.TOJSON_ARGS = NULL) ## import in order to run canvasXpress
@@ -371,7 +372,6 @@ dea_server <- function(input, output, session, datasetName, dataset, response, r
           output$pathwayEnrichment_info <- renderPrint({
             if(!is.null(dea_ui_vars$pathwayEnrichment_plot_click())){
               hover=dea_ui_vars$pathwayEnrichment_plot_click()
-              print(nearPoints(edgesGsetAll, hover, threshold = 5, maxpoints = 1)[,c("Term", "Overlap", "P.value", 'Adjusted.P.value', "Genes", "database")])
             }
           })
 
@@ -383,8 +383,6 @@ dea_server <- function(input, output, session, datasetName, dataset, response, r
             edgesPertUp <- do.call(rbind, enrichedUp) %>%
               dplyr::mutate(database = rep(names(enrichedUp), sapply(enrichedUp, nrow))) %>%
               dplyr::filter(Adjusted.P.value < dea_ui_vars$fdr())
-            print("edgesPertUp")
-            print(edgesPertUp)
             edgesPertUp_list <- strsplit(edgesPertUp$Genes, ";")
             names(edgesPertUp_list) <- edgesPertUp$Term
 
