@@ -298,39 +298,44 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
         pred <- pred %>% dplyr::select(obs, rowIndex, Yes:panel)
         pred$Resample <-  sapply(strsplit(pred$Resample, "\\."), function(i) i[2])
         pred <- pred %>%
-          filter(panel %in% ensem) %>%
-          group_by(obs, rowIndex, alpha, lambda, Resample) %>%
+          dplyr::filter(panel %in% ensem) %>%
+          dplyr::group_by(obs, rowIndex, alpha, lambda, Resample) %>%
           dplyr::summarise(Yes = mean(Yes)) %>%
-          mutate(panel = "Ensemble") %>%
+          dplyr::mutate(panel = "Ensemble") %>%
           dplyr::full_join(pred, .)
 
         ## Compute classification performance
+        # dplyr::summarise(auc = pROC::auc(pROC::roc(response = obs, predictor = Yes, direction = "<"))) %>%
         perf <- pred %>%
-          group_by(panel, alpha, lambda, Resample) %>%
-          dplyr::summarise(auc = pROC::roc(obs~Yes, direction = "<")$auc) %>%
-          ungroup %>%
-          group_by(panel, alpha, lambda) %>%
+          dplyr::group_by(panel, alpha, lambda, Resample) %>%
+          tidyr::nest() %>%
+          dplyr::mutate(auc = purrr::map(.x = data, .f = ~{
+            as.numeric(pROC::roc(response = .x$obs, predictor = .x$Yes, direction = "<")$auc)
+          })) %>%
+          tidyr::unnest(auc) %>%
+          dplyr::select(-data) %>%
+          dplyr::group_by(panel, alpha, lambda) %>%
           dplyr::summarise(Mean = mean(auc),
-            SD = sd(auc)) %>%
-          ungroup() %>%
-          group_by(panel) %>%
-          filter(Mean == max(Mean)) %>%
-          filter(SD == max(SD)) %>%
-          arrange(desc(lambda)) %>%
+                           SD = sd(auc)) %>%
+          dplyr::ungroup() %>%
+          dplyr::group_by(panel) %>%
+          dplyr::filter(Mean == max(Mean)) %>%
+          dplyr::filter(SD == max(SD)) %>%
+          dplyr::arrange(desc(lambda)) %>%
           dplyr::slice(1) %>%
-          ungroup() %>%
-          arrange(desc(Mean))
+          dplyr::ungroup() %>%
+          dplyr::arrange(dplyr::desc(Mean))
 
         ## Compuate roc curves
         rocTable <- pred %>%
-          group_by(panel, alpha, lambda, Resample) %>%
+          dplyr::group_by(panel, alpha, lambda, Resample) %>%
           tidyr::nest() %>%
-          mutate(roc = purrr::map(data, ~{
+          dplyr::mutate(roc = purrr::map(data, ~{
             data.frame(tpr = pROC::roc(.$obs,.$Yes, direction = "<")$sensitivities,
               fpr = (1-pROC::roc(.$obs,.$Yes, direction = "<")$specificities))
           })) %>%
           tidyr::unnest(roc) %>%
-          group_by(panel, alpha, lambda, fpr) %>%
+          dplyr::group_by(panel, alpha, lambda, fpr) %>%
           dplyr::summarise(mean_tpr = mean(tpr), sd_fpr = sd(tpr)) %>%
           dplyr::inner_join(x = perf, y = ., by = c("panel", "alpha", "lambda"))
       })
@@ -351,7 +356,7 @@ biomarker_discovery_analysis_server <- function(input, output, session, datasets
       DT::datatable(
         perf %>%
           mutate(alpha = signif(alpha, 2), lambda = signif(lambda, 2),
-            Mean = signif(Mean, 2), SD = signif(SD, 2)),
+            `AUC Mean(SD)` = paste0(signif(Mean, 2), "(", signif(SD, 2), ")")) %>% dplyr::select(-c(Mean, SD)),
         selection = list(target = "row+column"),
         options = list(pageLength = nrow(perf), dom = "ft", digits = 4))
     }, width = "50%")
