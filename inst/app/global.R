@@ -1,23 +1,35 @@
 options(repos=structure(BiocManager::repositories())) ## repository configuration of bioconductor packages
 
 # load libraries
-## pakcages for shiny app
-suppressPackageStartupMessages(library("shiny"));
-suppressPackageStartupMessages(library("shinydashboard"));
-suppressPackageStartupMessages(library("shinyBS"));
-suppressPackageStartupMessages(library("dqshiny"));
-suppressPackageStartupMessages(library("plotly"));
-suppressPackageStartupMessages(library("omicsBioAnalytics")); # devtools::install_github("singha53/omicsBioAnalytics", force = TRUE)
-suppressPackageStartupMessages(library("googleVis"));
+## installer packages
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+if (!requireNamespace("remotes", quietly = TRUE))
+  install.packages("remotes")
+if (!requireNamespace("devtools", quietly = TRUE))
+  install.packages("devtools")
+
+## Bioconductor packages
+if (!requireNamespace("limma", quietly = TRUE))
+  BiocManager::install("limma")
 suppressPackageStartupMessages(library("limma"));
-suppressPackageStartupMessages(library("lattice"));
-suppressPackageStartupMessages(library("aws.s3"));
-suppressPackageStartupMessages(library("canvasXpress"));
-suppressPackageStartupMessages(library("enrichR"));
-suppressPackageStartupMessages(library("visNetwork"));
-suppressPackageStartupMessages(library("caret"));
-suppressPackageStartupMessages(library("glmnet"));
-suppressPackageStartupMessages(library("ggrepel"));
+
+## Github packages
+if (!requireNamespace("dqshiny", quietly = TRUE))
+  remotes::install_github("daqana/dqshiny")
+suppressPackageStartupMessages(library("dqshiny"));
+if (!requireNamespace("omicsBioAnalytics", quietly = TRUE))
+devtools::install_github("singha53/omicsBioAnalytics@udacity", force = TRUE);
+
+## CRAN packages
+pkgs <- c("shiny", "shinydashboard", "shinyBS", "plotly", "googleVis", "lattice", "aws.s3", "canvasXpress", "enrichR", "visNetwork", "caret", "glmnet", "ggrepel")
+sapply(pkgs, function(pkg){
+  if (!requireNamespace(pkg, quietly = TRUE)){
+    install.packages(pkg)
+  } else {
+    suppressPackageStartupMessages(library(pkg));
+  }
+})
 
 ## Import data
 data("heartFailure")
