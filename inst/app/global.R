@@ -6,8 +6,6 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
 if (!requireNamespace("remotes", quietly = TRUE))
   install.packages("remotes")
-if (!requireNamespace("devtools", quietly = TRUE))
-  install.packages("devtools")
 
 ## Bioconductor packages
 if (!requireNamespace("limma", quietly = TRUE))
@@ -19,7 +17,8 @@ if (!requireNamespace("dqshiny", quietly = TRUE))
   remotes::install_github("daqana/dqshiny")
 suppressPackageStartupMessages(library("dqshiny"));
 if (!requireNamespace("omicsBioAnalytics", quietly = TRUE))
-devtools::install_github("singha53/omicsBioAnalytics@udacity", force = TRUE);
+remotes::install_github("singha53/omicsBioAnalytics@udacity", force = TRUE);
+suppressPackageStartupMessages(library("omicsBioAnalytics"));
 
 ## CRAN packages
 pkgs <- c("shiny", "shinydashboard", "shinyBS", "plotly", "googleVis", "lattice", "aws.s3", "canvasXpress", "enrichR", "visNetwork", "caret", "glmnet", "ggrepel")

@@ -32,9 +32,10 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
 # install R packages required 
 # (change it dependeing on the packages you need)
 RUN R -e "install.packages('remotes')"
-#RUN R -e "remotes::install_github('daqana/dqshiny')"
+RUN R -e "remotes::install_github('daqana/dqshiny')"
 #RUN Rscript -e "install.packages(c('BiocManager', 'aws.s3', 'canvasXpress', 'caret', 'dplyr', 'DT', 'ellipse', 'enrichR', 'ggrepel', 'glmnet', 'googleVis', 'gridExtra', 'gvlma', 'jsonlite', 'lattice', 'magrittr', 'pheatmap', 'plotly', 'pROC','RColorBrewer', 'sortable', 'shinyjs', 'shinydashboard', 'shinyBS', 'tidyr', 'UpSetR', 'visNetwork'))"
-#RUN Rscript -e "BiocManager::install('limma')"
+RUN Rscript -e "install.packages('BiocManager')"
+RUN Rscript -e "BiocManager::install('limma')"
 RUN R -e "remotes::install_github('singha53/omicsBioAnalytics@udacity')"
 
 # copy the app to the image
