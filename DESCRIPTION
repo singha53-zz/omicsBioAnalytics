@@ -7,7 +7,7 @@ Maintainer: Amrit Singh <asingh.analytics@gmail.com>
 Description: Users can upload multiple omics data and perform various bioinformatics analyses.
     These analyses include descriptive statistics, exploratory data analyses, differential expression analysis,
     biomarker discovery analysis and manuscript writing.
-Depends: R (>= 3.5.0)
+Depends: R (>= 3.6.3)
 Imports:
  aws.s3 (>= 0.3.21),
  canvasXpress (>= 1.26.5),
