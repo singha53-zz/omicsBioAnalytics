@@ -1,34 +1,8 @@
 options(repos=structure(BiocManager::repositories())) ## repository configuration of bioconductor packages
 
 # load libraries
-## installer packages
-if (!requireNamespace("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-if (!requireNamespace("remotes", quietly = TRUE))
-  install.packages("remotes")
-
-## Bioconductor packages
-if (!requireNamespace("limma", quietly = TRUE))
-  BiocManager::install("limma")
-suppressPackageStartupMessages(library("limma"));
-
-## Github packages
-if (!requireNamespace("dqshiny", quietly = TRUE))
-  remotes::install_github("daqana/dqshiny")
-suppressPackageStartupMessages(library("dqshiny"));
-if (!requireNamespace("omicsBioAnalytics", quietly = TRUE))
-remotes::install_github("singha53/omicsBioAnalytics@udacity", force = TRUE);
-suppressPackageStartupMessages(library("omicsBioAnalytics"));
-
-## CRAN packages
-pkgs <- c("shiny", "shinydashboard", "shinyBS", "plotly", "googleVis", "lattice", "aws.s3", "canvasXpress", "enrichR", "visNetwork", "caret", "glmnet", "ggrepel")
-sapply(pkgs, function(pkg){
-  if (!requireNamespace(pkg, quietly = TRUE)){
-    install.packages(pkg)
-  } else {
-    suppressPackageStartupMessages(library(pkg));
-  }
-})
+pkgs <- c("limma", "omicsBioAnalytics", "dqshiny", "shiny", "shinydashboard", "shinyBS", "plotly", "googleVis", "lattice", "aws.s3", "canvasXpress", "enrichR", "visNetwork", "caret", "glmnet", "ggrepel")
+pacman::p_load(pkgs)
 
 ## Import data
 data("heartFailure")
