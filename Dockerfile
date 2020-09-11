@@ -5,14 +5,14 @@
 # RUN R -e "remotes::install_github('daqana/dqshiny')"
 # RUN Rscript -e "install.packages('BiocManager')"
 # RUN Rscript -e "BiocManager::install('limma')"
-# RUN R -e "devtools::install_github('singha53/omicsBioAnalytics@master')" 
+# RUN R -e "devtools::install_github('singha53/omicsBioAnalytics@master')"
 
 # # copy app to image
 # COPY inst/app /app
 
 # EXPOSE 3838
 
-# CMD ["R", "-e", "options(shiny.port = 3838, shiny.host = '0.0.0.0'); shiny::runApp('/app')"] 
+# CMD ["R", "-e", "options(shiny.port = 3838, shiny.host = '0.0.0.0'); shiny::runApp('/app')"]
 
 FROM rocker/shiny:3.6.3
 
@@ -29,12 +29,12 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
   unixodbc-dev \
   && rm -rf /tmp/downloaded_packages
 
-# install R packages required 
+# install R packages required
 # (change it dependeing on the packages you need)
 RUN R -e "install.packages('remotes')"
 RUN R -e "install.packages('devtools')"
 RUN R -e "remotes::install_github('daqana/dqshiny')"
-RUN Rscript -e "install.packages(c('pacman', 'BiocManager', 'aws.s3', 'canvasXpress', 'caret', 'dplyr', 'DT', 'ellipse', 'enrichR', 'ggrepel', 'glmnet', 'googleVis', 'gridExtra', 'gvlma', 'jsonlite', 'lattice', 'magrittr', 'pheatmap', 'plotly', 'pROC','RColorBrewer', 'sortable', 'shinyjs', 'shinydashboard', 'shinyBS', 'tidyr', 'UpSetR', 'visNetwork'))"
+RUN Rscript -e "install.packages(c('BiocManager', 'aws.s3', 'canvasXpress', 'caret', 'dplyr', 'DT', 'ellipse', 'enrichR', 'ggrepel', 'glmnet', 'googleVis', 'gridExtra', 'gvlma', 'jsonlite', 'lattice', 'magrittr', 'pheatmap', 'plotly', 'pROC','RColorBrewer', 'sortable', 'shinyjs', 'shinydashboard', 'shinyBS', 'tidyr', 'UpSetR', 'visNetwork'))"
 RUN Rscript -e "install.packages('BiocManager')"
 RUN Rscript -e "BiocManager::install('limma')"
 RUN R -e "remotes::install_github('singha53/omicsBioAnalytics@udacity')"

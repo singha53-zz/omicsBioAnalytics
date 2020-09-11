@@ -26,7 +26,6 @@ Imports:
  lattice (>= 0.20-38),
  limma (>= 3.40.6),
  magrittr (>= 1.5),
- pacman (>= 0.5.1),
  pheatmap (>= 1.0.12),
  plotly (>= 4.9.1),
  pROC (>= 1.15.3),

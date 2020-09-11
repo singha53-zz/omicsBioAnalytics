@@ -1,8 +1,22 @@
 options(repos=structure(BiocManager::repositories())) ## repository configuration of bioconductor packages
 
 # load libraries
-pkgs <- c("limma", "omicsBioAnalytics", "dqshiny", "shiny", "shinydashboard", "shinyBS", "plotly", "googleVis", "lattice", "aws.s3", "canvasXpress", "enrichR", "visNetwork", "caret", "glmnet", "ggrepel")
-pacman::p_load(pkgs)
+suppressPackageStartupMessages(library("shiny"));
+suppressPackageStartupMessages(library("shinydashboard"));
+suppressPackageStartupMessages(library("shinyBS"));
+suppressPackageStartupMessages(library("dqshiny"));
+suppressPackageStartupMessages(library("plotly"));
+suppressPackageStartupMessages(library("omicsBioAnalytics")); # devtools::install_github("singha53/omicsBioAnalytics", force = TRUE)
+suppressPackageStartupMessages(library("googleVis"));
+suppressPackageStartupMessages(library("limma"));
+suppressPackageStartupMessages(library("lattice"));
+suppressPackageStartupMessages(library("aws.s3"));
+suppressPackageStartupMessages(library("canvasXpress"));
+suppressPackageStartupMessages(library("enrichR"));
+suppressPackageStartupMessages(library("visNetwork"));
+suppressPackageStartupMessages(library("caret"));
+suppressPackageStartupMessages(library("glmnet"));
+suppressPackageStartupMessages(library("ggrepel"));
 
 ## Import data
 data("heartFailure")
