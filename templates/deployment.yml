@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omics-bioanalytics
+  labels:
+    app: omics-bioanalytics
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: omics-bioanalytics
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: omics-bioanalytics
+    spec:
+      containers:
+        - image: "singha53/omics-bioanalytics:version0.1"
+          imagePullPolicy: Always
+          name: omics-bioanalytics
+          ports:
+          - containerPort: 3838
+          volumeMounts:
+          - mountPath: /srv/shiny-server/www
+            name: shiny-persistent-storage
+      volumes:
+        - name: shiny-persistent-storage
